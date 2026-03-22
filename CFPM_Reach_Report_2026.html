@@ -224,8 +224,8 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
       <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="webTable"></table></div>
       <div id="webInsightsContainer"></div>
       <div class="chart-card mb">
-        <div class="chart-title" style="margin-bottom:4px">Top 25 Pages</div>
-        <div style="font-size:11px;color:var(--mid);margin-bottom:14px;">Source: Google Analytics · refreshes automatically with sheet</div>
+        <div class="chart-title" style="margin-bottom:4px">Top 25 Pages — Last 30 Days</div>
+        <div style="font-size:11px;color:var(--mid);margin-bottom:14px;">Source: Google Analytics · last 30 days · refreshes automatically with sheet</div>
         <div id="topPagesContainer" style="overflow-x:auto;"></div>
       </div>
     </div>
@@ -623,7 +623,7 @@ function buildWebInsights() {
     return;
   }
 
-  container.innerHTML = `<div class="insight-grid" style="margin-bottom:1.25rem">${
+  container.innerHTML = `<div style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--mid);margin-bottom:10px;">Website Insights · Last 30 Days</div><div class="insight-grid" style="margin-bottom:1.25rem">${
     insights.slice(0,3).map(ins => `
       <div class="insight-card" style="--accent-color:${ins.color}">
         <div class="insight-tag">${ins.tag}</div>
