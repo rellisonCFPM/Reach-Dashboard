@@ -290,7 +290,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
 </footer>
 
 <script>
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxvHqbUbuK4kOGVAa_Dhgrzhgp3tH6CarcxCehb-EVAAQzoPipCKi-WESJWjkOWkbYdDQ/exec';
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbEtgxUtrjz091EHIvVTMhyZmX90KuuvKsKrqq508chH3Zkoy5lFFo-cu8cfDZD7c0Pfy-dk1dhDe9/pub?gid=0&single=true&output=csv';
 
 const ALL_MONTHS      = ['Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'];
 const ALL_MONTHS_FULL = ['Oct 2025','Nov 2025','Dec 2025','Jan 2026','Feb 2026','Mar 2026','Apr 2026','May 2026','Jun 2026','Jul 2026','Aug 2026','Sep 2026'];
@@ -333,19 +333,43 @@ let dataMonths = [];
 let latestDataIdx = 0;
 
 // ── Load ──────────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  // Robust CSV parser handling quoted fields with commas
+  const rows = [];
+  const lines = text.split(/
+?
+/);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const row = [];
+    let inQuote = false, cell = '';
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuote && line[i+1] === '"') { cell += '"'; i++; }
+        else inQuote = !inQuote;
+      } else if (ch === ',' && !inQuote) {
+        row.push(cell.trim()); cell = '';
+      } else {
+        cell += ch;
+      }
+    }
+    row.push(cell.trim());
+    rows.push(row);
+  }
+  return rows;
+}
+
 async function loadData() {
   setSyncStatus('loading','Connecting to sheet…');
   show('loadingState'); hide('errorState'); hide('dashContent');
 
-  // Route through allorigins.win proxy to handle Google redirect chain + CORS
-  const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(APPS_SCRIPT_URL);
-
   try {
-    const res = await fetch(proxyUrl);
-    if (!res.ok) throw new Error('Proxy returned HTTP ' + res.status);
-    const wrapper = await res.json();
-    if (!wrapper.contents) throw new Error('Empty response from proxy');
-    const rows = JSON.parse(wrapper.contents);
+    const res = await fetch(SHEET_CSV_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    if (!text || text.length < 10) throw new Error('Empty response — check the sheet is published');
+    const rows = parseCSV(text);
     parseSheet(rows);
     hide('loadingState'); show('dashContent');
     document.getElementById('lastFetched').textContent = 'Last synced: ' + new Date().toLocaleString();
