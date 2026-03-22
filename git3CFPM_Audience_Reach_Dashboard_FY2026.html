@@ -417,7 +417,7 @@ function parseSheet(rows) {
     if (v === '' || v === null || v === undefined) return false;
     const s = String(v).trim();
     if (s === '' || s === '0' || s === '#DIV/0!' || s === '#N/A' || s === '#VALUE!' || s === '#REF!') return false;
-    if (s.includes('%')) return false; // skip percentage helper columns
+    if (s.includes('%') && parseFloat(s) === 0) return false; // skip 0% values only
     const n = parseFloat(s.replace(/,/g,''));
     return !isNaN(n) && n !== 0;
   }
@@ -470,7 +470,8 @@ function parseSheet(rows) {
       if (!isRealValue(raw)) continue;
       const s = String(raw).trim();
       if (s.includes('%')) {
-        D[k][c-1] = parseFloat(s) / 100;
+        const pctVal = parseFloat(s);
+        if (!isNaN(pctVal) && pctVal !== 0) D[k][c-1] = pctVal / 100;
         continue;
       }
       const n = typeof raw === 'number' ? raw : parseFloat(s.replace(/,/g,''));
