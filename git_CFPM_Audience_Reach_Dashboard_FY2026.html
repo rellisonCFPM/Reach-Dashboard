@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CFPM Audience Reach Dashboard — FY2026 | Central Florida Public Media</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{--navy:#001421;--navy2:#002A42;--teal:#036EBB;--teal2:#025A96;--green:#35C934;--amber:#E8A020;--coral:#D85A30;--white:#FFFFFF;--off:#F2F6FA;--lt:#D6E4F0;--mid:#888780;--dark:#2C2C2A;--card:#FFFFFF;--bg:#F2F6FA;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dark);min-height:100vh;}
+.header{background:var(--navy);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:100;border-bottom:1px solid rgba(255,255,255,0.06);}
+.header-left{display:flex;align-items:center;gap:1rem;}
+.header-title{color:var(--white);font-size:15px;font-weight:500;letter-spacing:-0.01em;}
+.header-sub{color:var(--mid);font-size:12px;margin-top:1px;}
+.header-right{display:flex;align-items:center;gap:10px;}
+.header-badge{background:rgba(3,110,187,0.18);border:1px solid rgba(3,110,187,0.35);color:#6BBFFF;font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;letter-spacing:0.02em;}
+.sync-status{font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;display:flex;align-items:center;gap:5px;}
+.sync-status.loading{background:rgba(232,160,32,0.15);color:#E8A020;border:1px solid rgba(232,160,32,0.3);}
+.sync-status.ok{background:rgba(53,201,52,0.12);color:#35C934;border:1px solid rgba(53,201,52,0.25);}
+.sync-status.err{background:rgba(216,90,48,0.15);color:var(--coral);border:1px solid rgba(216,90,48,0.3);}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.sync-dot.pulse{animation:pulse 1.4s ease infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.platform-nav{background:var(--white);border-bottom:1px solid var(--lt);padding:0 2rem;display:flex;gap:0;overflow-x:auto;scrollbar-width:none;}
+.platform-nav::-webkit-scrollbar{display:none;}
+.pnav-btn{padding:14px 20px;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;color:var(--mid);background:none;border:none;border-bottom:2.5px solid transparent;cursor:pointer;transition:all 0.18s;white-space:nowrap;display:flex;align-items:center;gap:7px;}
+.pnav-btn:hover{color:var(--dark);}
+.pnav-btn.active{color:var(--dark);border-bottom-color:var(--active-color,var(--teal));}
+.pnav-dot{width:8px;height:8px;border-radius:50%;background:var(--active-color,var(--mid));opacity:0.5;transition:opacity 0.18s;}
+.pnav-btn.active .pnav-dot{opacity:1;}
+.main{padding:1.5rem 2rem 3rem;max-width:1400px;margin:0 auto;}
+.platform-view{display:none;}.platform-view.active{display:block;}
+.fullscreen-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px;color:var(--mid);}
+.spinner{width:36px;height:36px;border:3px solid var(--lt);border-top-color:var(--teal);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fullscreen-state h2{font-size:16px;font-weight:500;color:var(--dark);}
+.fullscreen-state p{font-size:13px;color:var(--mid);max-width:420px;text-align:center;line-height:1.6;}
+.retry-btn{margin-top:8px;padding:8px 20px;background:var(--teal);color:white;border:none;border-radius:8px;font-size:13px;font-weight:500;font-family:'IBM Plex Sans',sans-serif;cursor:pointer;}
+.retry-btn:hover{background:var(--teal2);}
+.ytd-banner{background:var(--navy2);border-radius:10px;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1.5rem;border:1px solid rgba(255,255,255,0.06);}
+.ytd-label{font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6BBFFF;}
+.ytd-val{font-size:13px;color:rgba(255,255,255,0.85);font-weight:500;margin-top:2px;}
+.month-pip-wrap{display:flex;flex-direction:column;align-items:center;}
+.month-pip{width:28px;height:8px;border-radius:3px;background:rgba(255,255,255,0.1);}
+.month-pip.has-data{background:var(--teal);}
+.month-pip-label{font-size:9px;color:var(--mid);text-align:center;margin-top:2px;font-family:'IBM Plex Mono',monospace;}
+.section-eyebrow{font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--mid);margin-bottom:6px;}
+.section-title{font-size:22px;font-weight:600;color:var(--navy);letter-spacing:-0.02em;margin-bottom:1.5rem;display:flex;align-items:center;gap:10px;}
+.platform-color-bar{width:4px;height:28px;border-radius:2px;flex-shrink:0;}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:1.5rem;}
+.stat-card{background:var(--card);border-radius:12px;padding:1.1rem 1.2rem;border:1px solid var(--lt);position:relative;overflow:hidden;transition:transform 0.15s,box-shadow 0.15s;}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.08);}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent-color,var(--teal));}
+.stat-label{font-size:11px;color:var(--mid);font-weight:500;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em;}
+.stat-num{font-size:24px;font-weight:600;color:var(--navy);letter-spacing:-0.03em;line-height:1;margin-bottom:5px;}
+.stat-num.sm{font-size:19px;}.stat-num.na{font-size:16px;color:var(--mid);}
+.stat-change{font-size:12px;font-weight:500;display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;}
+.stat-change.up{background:rgba(53,201,52,0.1);color:#1a7a19;}
+.stat-change.down{background:rgba(216,90,48,0.1);color:var(--coral);}
+.stat-change.neu{background:rgba(136,135,128,0.1);color:var(--mid);}
+.month-bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1.25rem;background:var(--card);border:1px solid var(--lt);border-radius:10px;padding:12px 16px;}
+.month-bar label{font-size:12px;color:var(--mid);font-weight:500;text-transform:uppercase;letter-spacing:0.06em;}
+.month-bar select{font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;color:var(--navy);padding:6px 12px;border-radius:8px;border:1px solid var(--lt);background:var(--off);cursor:pointer;}
+.month-bar .hint{font-size:11px;color:var(--mid);}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:1.5rem;}
+.chart-grid.wide{grid-template-columns:2fr 1fr;}
+.chart-grid.three{grid-template-columns:1fr 1fr 1fr;}
+@media(max-width:900px){.chart-grid,.chart-grid.wide,.chart-grid.three{grid-template-columns:1fr;}}
+.chart-card{background:var(--card);border-radius:12px;padding:1.2rem;border:1px solid var(--lt);}
+.chart-card.mb{margin-bottom:1.5rem;}
+.chart-title{font-size:11px;font-weight:600;color:var(--dark);margin-bottom:1rem;text-transform:uppercase;letter-spacing:0.07em;}
+.chart-wrap{position:relative;width:100%;}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--mid);}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+.insight-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:1.5rem;}
+.insight-card{background:var(--card);border-radius:12px;padding:1.1rem 1.2rem;border:1px solid var(--lt);border-left:3px solid var(--accent-color,var(--teal));}
+.insight-tag{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent-color,var(--teal));margin-bottom:5px;}
+.insight-title{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px;line-height:1.4;}
+.insight-body{font-size:12px;color:var(--mid);line-height:1.6;}
+.data-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.data-table th{font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--mid);padding:7px 12px;text-align:right;border-bottom:1px solid var(--lt);white-space:nowrap;}
+.data-table th:first-child{text-align:left;}
+.data-table td{padding:9px 12px;border-bottom:1px solid var(--off);text-align:right;color:var(--dark);}
+.data-table td:first-child{text-align:left;font-weight:500;color:var(--navy);}
+.data-table tr:last-child td{border-bottom:none;}
+.data-table tr:hover td{background:var(--off);}
+.na-cell{color:var(--lt);font-size:12px;}
+.tbl-up{color:#1a7a19;font-weight:600;}.tbl-down{color:var(--coral);font-weight:600;}.tbl-neu{color:var(--mid);}
+.badge-up{background:rgba(53,201,52,0.1);color:#1a7a19;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;}
+.badge-down{background:rgba(216,90,48,0.1);color:var(--coral);padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;}
+.badge-neu{background:rgba(136,135,128,0.1);color:var(--mid);padding:1px 7px;border-radius:20px;font-size:11px;white-space:nowrap;}
+.badge-partial{background:rgba(232,160,32,0.1);color:#a06b0a;padding:1px 7px;border-radius:20px;font-size:11px;white-space:nowrap;}
+.sub-eyebrow{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--mid);margin:1.5rem 0 0.75rem;padding-bottom:6px;border-bottom:1px solid var(--lt);}
+.dash-footer{text-align:center;padding:1.5rem 2rem;font-size:11px;color:var(--mid);border-top:1px solid var(--lt);margin-top:2rem;}
+.platform-view.active .stat-card{animation:fadeUp 0.3s ease both;}
+.platform-view.active .stat-card:nth-child(1){animation-delay:.04s}
+.platform-view.active .stat-card:nth-child(2){animation-delay:.08s}
+.platform-view.active .stat-card:nth-child(3){animation-delay:.12s}
+.platform-view.active .stat-card:nth-child(4){animation-delay:.16s}
+.platform-view.active .stat-card:nth-child(5){animation-delay:.20s}
+.platform-view.active .stat-card:nth-child(6){animation-delay:.24s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="155 110 335 255" height="32" style="vertical-align:middle;display:inline-block">
+      <style>.ir1{fill:#35c934}.ir2{fill:#036ebb}</style>
+      <path class="ir2" d="M236.12,115.57h0v75.83h-75.83c0-41.85,33.98-75.83,75.83-75.83Z"/>
+      <path class="ir2" d="M243.26,115.57h75.83c0,41.85-33.98,75.83-75.83,75.83h0v-75.83h0Z"/>
+      <rect class="ir1" x="326.31" y="115.57" width="75.83" height="75.83"/>
+      <rect class="ir1" x="409.31" y="115.57" width="75.83" height="75.83"/>
+      <path class="ir1" d="M326.31,281.37h75.83c0,41.85-33.98,75.83-75.83,75.83h0v-75.83h0Z"/>
+      <rect class="ir1" x="326.31" y="198.54" width="75.83" height="75.83"/>
+      <path class="ir1" d="M409.2,198.46h0c41.85,0,75.83,33.98,75.83,75.83h-75.83v-75.83h0Z"/>
+      <rect class="ir2" x="160.31" y="198.46" width="75.83" height="75.83"/>
+      <path class="ir2" d="M160.31,281.31h75.83v75.83h0c-41.85,0-75.83-33.98-75.83-75.83h0Z"/>
+      <path class="ir2" d="M243.22,281.31h0c41.85,0,75.83,33.98,75.83,75.83h-75.83v-75.83h0Z"/>
+    </svg>
+    <div>
+      <div class="header-title">Central Florida Public Media</div>
+      <div class="header-sub">Audience Reach Dashboard — FY2026</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="sync-status loading" id="syncStatus">
+      <div class="sync-dot pulse"></div>
+      <span id="syncLabel">Connecting to sheet…</span>
+    </div>
+    <span class="header-badge">FY2026 · Oct 2025 – Sep 2026</span>
+  </div>
+</header>
+
+<nav class="platform-nav" id="platformNav">
+  <button class="pnav-btn active" data-view="overview"    style="--active-color:#036EBB"><span class="pnav-dot" style="--active-color:#036EBB"></span>All Platforms</button>
+  <button class="pnav-btn"        data-view="radio"       style="--active-color:#036EBB"><span class="pnav-dot" style="--active-color:#036EBB"></span>Radio</button>
+  <button class="pnav-btn"        data-view="digital"     style="--active-color:#E8A020"><span class="pnav-dot" style="--active-color:#E8A020"></span>Digital Listening</button>
+  <button class="pnav-btn"        data-view="website"     style="--active-color:#534AB7"><span class="pnav-dot" style="--active-color:#534AB7"></span>Website</button>
+  <button class="pnav-btn"        data-view="social"      style="--active-color:#D85A30"><span class="pnav-dot" style="--active-color:#D85A30"></span>Social Media</button>
+  <button class="pnav-btn"        data-view="app"         style="--active-color:#025A96"><span class="pnav-dot" style="--active-color:#025A96"></span>Mobile App</button>
+  <button class="pnav-btn"        data-view="newsletter"  style="--active-color:#3B6D11"><span class="pnav-dot" style="--active-color:#3B6D11"></span>Newsletter</button>
+  <button class="pnav-btn"        data-view="apple"       style="--active-color:#888780"><span class="pnav-dot" style="--active-color:#888780"></span>Apple News</button>
+</nav>
+
+<main class="main" id="mainContent">
+  <div class="fullscreen-state" id="loadingState">
+    <div class="spinner"></div>
+    <h2>Loading live data…</h2>
+    <p>Fetching your Google Sheet. This only takes a moment.</p>
+  </div>
+  <div class="fullscreen-state" id="errorState" style="display:none">
+    <h2>Couldn't reach the sheet</h2>
+    <p id="errorMsg">The Google Apps Script endpoint didn't respond. Make sure the deployment is set to "Anyone can access."</p>
+    <button class="retry-btn" onclick="loadData()">Try again</button>
+  </div>
+
+  <div id="dashContent" style="display:none">
+    <div class="ytd-banner" id="ytdBanner"></div>
+
+    <!-- OVERVIEW -->
+    <div class="platform-view active" id="view-overview">
+      <div class="section-eyebrow">Year to Date Summary</div>
+      <div class="section-title"><div class="platform-color-bar" style="background:var(--teal)"></div><span id="ovTitle">FY2026 — Audience Reach</span></div>
+      <div class="stat-row" id="ovStatRow"></div>
+      <div class="chart-grid wide">
+        <div class="chart-card"><div class="chart-title">Audience Reach Total (ART) — Monthly YTD</div><div class="chart-wrap" style="height:240px"><canvas id="ovArtChart"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Platform Mix — YTD Totals</div><div class="legend" id="ovMixLegend"></div><div class="chart-wrap" style="height:200px"><canvas id="ovMixChart"></canvas></div></div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card"><div class="chart-title">Quarter over Quarter — ART</div><div class="chart-wrap" style="height:220px"><canvas id="ovQoQChart"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">All Platforms — Monthly Trend</div><div class="legend" id="ovTrendLegend"></div><div class="chart-wrap" style="height:220px"><canvas id="ovTrendChart"></canvas></div></div>
+      </div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Full Platform QoQ Summary</div><table class="data-table" id="ovQTable"></table></div>
+    </div>
+
+    <!-- RADIO -->
+    <div class="platform-view" id="view-radio">
+      <div class="section-eyebrow">Platform Detail</div>
+      <div class="section-title"><div class="platform-color-bar" style="background:#036EBB"></div>Radio Listening — FY2026</div>
+      <div class="stat-row" id="radioTopRow"></div>
+      <div class="month-bar"><div style="display:flex;align-items:center;gap:12px"><label>Month:</label><select id="radioMonthPicker"></select></div><div class="hint">Change % vs prior month</div></div>
+      <div class="stat-row" id="radioMoMRow"></div>
+      <div class="chart-grid wide">
+        <div class="chart-card"><div class="chart-title">Monthly Radio — Sub-channels</div><div class="legend"><div class="legend-item"><span class="legend-dot" style="background:#036EBB"></span>90.7 WMFE</div><div class="legend-item"><span class="legend-dot" style="background:#E8A020"></span>89.5 WMFV</div><div class="legend-item"><span class="legend-dot" style="background:#35C934"></span>HD2</div></div><div class="chart-wrap" style="height:240px"><canvas id="radioBreakdownChart"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Quarter over Quarter</div><div class="chart-wrap" style="height:240px"><canvas id="radioQoQChart"></canvas></div></div>
+      </div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="radioTable"></table></div>
+    </div>
+
+    <!-- DIGITAL -->
+    <div class="platform-view" id="view-digital">
+      <div class="section-eyebrow">Platform Detail</div>
+      <div class="section-title"><div class="platform-color-bar" style="background:#E8A020"></div>Digital Listening — FY2026</div>
+      <div class="stat-row" id="digitalTopRow"></div>
+      <div class="month-bar"><div style="display:flex;align-items:center;gap:12px"><label>Month:</label><select id="digitalMonthPicker"></select></div><div class="hint">Change % vs prior month</div></div>
+      <div class="stat-row" id="digitalMoMRow"></div>
+      <div class="chart-card mb"><div class="chart-title">All Sub-Platforms — Monthly YTD</div><div class="legend" id="digitalMultiLegend"></div><div class="chart-wrap" style="height:260px"><canvas id="digitalMultiChart"></canvas></div></div>
+      <div class="chart-grid">
+        <div class="chart-card"><div class="chart-title">Live Streams vs Podcasts</div><div class="legend"><div class="legend-item"><span class="legend-dot" style="background:#036EBB"></span>Live Streams</div><div class="legend-item"><span class="legend-dot" style="background:#D85A30"></span>Podcasts</div></div><div class="chart-wrap" style="height:200px"><canvas id="digitalStreamsPodChart"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">QoQ — Sub-Platforms</div><div class="legend" id="digitalQoQLegend"></div><div class="chart-wrap" style="height:200px"><canvas id="digitalQoQChart"></canvas></div></div>
+      </div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="digitalTable"></table></div>
+    </div>
+
+    <!-- WEBSITE -->
+    <div class="platform-view" id="view-website">
+      <div class="section-eyebrow">Platform Detail</div>
+      <div class="section-title"><div class="platform-color-bar" style="background:#534AB7"></div>Website — FY2026</div>
+      <div class="stat-row" id="webTopRow"></div>
+      <div class="month-bar"><div style="display:flex;align-items:center;gap:12px"><label>Month:</label><select id="webMonthPicker"></select></div><div class="hint">Change % vs prior month</div></div>
+      <div class="stat-row" id="webMoMRow"></div>
+      <div class="chart-grid wide">
+        <div class="chart-card"><div class="chart-title">Monthly Users — Organic vs Referral</div><div class="legend"><div class="legend-item"><span class="legend-dot" style="background:#534AB7"></span>Organic</div><div class="legend-item"><span class="legend-dot" style="background:#888780"></span>Referral</div></div><div class="chart-wrap" style="height:240px"><canvas id="webStackChart"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Quarter over Quarter</div><div class="chart-wrap" style="height:240px"><canvas id="webQoQChart"></canvas></div></div>
+      </div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="webTable"></table></div>
+    </div>
+
+    <!-- SOCIAL -->
+    <div class="platform-view" id="view-social">
+      <div class="section-eyebrow">Platform Detail</div>
+      <div class="section-title"><div class="platform-color-bar" style="background:#D85A30"></div>Social Media — FY2026</div>
+      <div class="stat-row" id="socialTopRow"></div>
+      <div class="month-bar"><div style="display:flex;align-items:center;gap:12px"><label>Month:</label><select id="socialMonthPicker"></select></div><div class="hint">Organic reach · change vs prior month</div></div>
+      <div class="stat-row" id="socialMoMRow"></div>
+      <div class="chart-grid wide">
+        <div class="chart-card"><div class="chart-title">Organic Reach by Platform</div><div class="legend"><div class="legend-item"><span class="legend-dot" style="background:#1877F2"></span>Facebook</div><div class="legend-item"><span class="legend-dot" style="background:#C13584"></span>Instagram</div><div class="legend-item"><span class="legend-dot" style="background:#FF0000"></span>YouTube</div></div><div class="chart-wrap" style="height:240px"><canvas id="socialReachChart"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Quarter over Quarter — Organic Total</div><div class="chart-wrap" style="height:240px"><canvas id="socialQoQChart"></canvas></div></div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card"><div class="chart-title">Follower Growth — All Platforms</div><div class="legend" id="followerLegend"></div><div class="chart-wrap" style="height:200px"><canvas id="followerChart"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">TikTok Video Views</div><div class="chart-wrap" style="height:200px"><canvas id="tiktokChart"></canvas></div></div>
+      </div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail — Reach &amp; Followers</div><table class="data-table" id="socialTable"></table></div>
+    </div>
+
+    <!-- APP -->
+    <div class="platform-view" id="view-app">
+      <div class="section-eyebrow">Platform Detail</div>
+      <div class="section-title"><div class="platform-color-bar" style="background:#025A96"></div>WMFE Mobile App — FY2026</div>
+      <div class="stat-row" id="appTopRow"></div>
+      <div class="month-bar"><div style="display:flex;align-items:center;gap:12px"><label>Month:</label><select id="appMonthPicker"></select></div><div class="hint">Change % vs prior month</div></div>
+      <div class="stat-row" id="appMoMRow"></div>
+      <div class="chart-grid">
+        <div class="chart-card"><div class="chart-title">Monthly Active Users</div><div class="chart-wrap" style="height:240px"><canvas id="appChart"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Quarter over Quarter</div><div class="chart-wrap" style="height:240px"><canvas id="appQoQChart"></canvas></div></div>
+      </div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="appTable"></table></div>
+    </div>
+
+    <!-- NEWSLETTER -->
+    <div class="platform-view" id="view-newsletter">
+      <div class="section-eyebrow">Platform Detail</div>
+      <div class="section-title"><div class="platform-color-bar" style="background:#3B6D11"></div>Email / Newsletter — FY2026</div>
+      <div class="stat-row" id="newsletterTopRow"></div>
+      <div class="month-bar"><div style="display:flex;align-items:center;gap:12px"><label>Month:</label><select id="newsletterMonthPicker"></select></div><div class="hint">Change % vs prior month</div></div>
+      <div class="stat-row" id="newsletterMoMRow"></div>
+      <div class="chart-grid">
+        <div class="chart-card"><div class="chart-title">Monthly Avg Opens</div><div class="chart-wrap" style="height:240px"><canvas id="newsletterChart"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Click Rate (Bot Filtered)</div><div class="chart-wrap" style="height:240px"><canvas id="clickRateChart"></canvas></div></div>
+      </div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="newsletterTable"></table></div>
+    </div>
+
+    <!-- APPLE NEWS -->
+    <div class="platform-view" id="view-apple">
+      <div class="section-eyebrow">Platform Detail</div>
+      <div class="section-title"><div class="platform-color-bar" style="background:#888780"></div>Apple News — FY2026</div>
+      <div class="stat-row" id="appleTopRow"></div>
+      <div class="month-bar"><div style="display:flex;align-items:center;gap:12px"><label>Month:</label><select id="appleMonthPicker"></select></div><div class="hint">Change % vs prior month</div></div>
+      <div class="stat-row" id="appleMoMRow"></div>
+      <div class="chart-grid">
+        <div class="chart-card"><div class="chart-title">Monthly Reach</div><div class="chart-wrap" style="height:240px"><canvas id="appleChart"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Quarter over Quarter</div><div class="chart-wrap" style="height:240px"><canvas id="appleQoQChart"></canvas></div></div>
+      </div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="appleTable"></table></div>
+    </div>
+
+  </div><!-- /dashContent -->
+</main>
+
+<footer class="dash-footer">
+  Data: Google Sheets via Apps Script · Live connection · Organic social reach shown unless noted &nbsp;|&nbsp;
+  FY2026: Oct 1, 2025 – Sep 30, 2026 &nbsp;|&nbsp; <span id="lastFetched"></span>
+</footer>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxvHqbUbuK4kOGVAa_Dhgrzhgp3tH6CarcxCehb-EVAAQzoPipCKi-WESJWjkOWkbYdDQ/exec';
+
+const ALL_MONTHS      = ['Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'];
+const ALL_MONTHS_FULL = ['Oct 2025','Nov 2025','Dec 2025','Jan 2026','Feb 2026','Mar 2026','Apr 2026','May 2026','Jun 2026','Jul 2026','Aug 2026','Sep 2026'];
+
+// Row label → key mapping (trimmed match against sheet)
+const ROW_MAP = {
+  radio:       'Radio Listening',
+  wmfe:        '90.7 WMFE (DMA+Metro)',
+  hd2:         'HD2',
+  wmfv:        '89.5 WMFV',
+  digital:     'Digital Listening',
+  streams:     'Live Streams',
+  story:       'Station Story Audio',
+  newscast:    'Digital Newscast',
+  nprone:      'NPR One / NPR App',
+  podcasts:    'Podcasts',
+  organic:     'Websites (organic users)',
+  referral:    'Referral users',
+  web:         'TOTAL users (organic+referral)',
+  facebook:    'Facebook (Organic Reach)',
+  fbFollowers: 'Facebook (followers)',
+  instagram:   'Instagram (Organic Reach)',
+  igFollowers: 'Instagram (followers)',
+  liFollowers: 'LinkedIn (followers)',
+  youtube:     'YouTube (unique viewers)',
+  ytFollowers: 'YouTube (followers)',
+  tiktok:      'TikTok (video views)',
+  tkFollowers: 'TikTok (followers)',
+  social:      'Organic Social Media Reach Aggregation',
+  socialFollowers: 'Social Follower Aggregation',
+  app:         'WMFE Mobile App users',
+  newsletter:  'Newsletter Opens',
+  clickRate:   'Newsletter Click rate (bot filtered)',
+  apple:       'Apple News (reach)',
+  art:         'Audience Reach Total (ART)'
+};
+
+let D = {};
+let dataMonths = [];
+let latestDataIdx = 0;
+
+// ── Load ──────────────────────────────────────────────────────────────────
+async function loadData() {
+  setSyncStatus('loading','Connecting to sheet…');
+  show('loadingState'); hide('errorState'); hide('dashContent');
+
+  // Use JSONP to bypass CORS — Apps Script supports ?callback= natively
+  const callbackName = 'cfpmSheetCallback_' + Date.now();
+  const url = APPS_SCRIPT_URL + '?callback=' + callbackName;
+
+  const timeout = setTimeout(() => {
+    cleanup();
+    hide('loadingState'); show('errorState');
+    document.getElementById('errorMsg').textContent = 'Request timed out. Check that the Apps Script is deployed as "Anyone" and try again.';
+    setSyncStatus('err','Connection failed');
+  }, 15000);
+
+  function cleanup() {
+    clearTimeout(timeout);
+    delete window[callbackName];
+    const s = document.getElementById('jsonpScript');
+    if (s) s.remove();
+  }
+
+  window[callbackName] = function(rows) {
+    cleanup();
+    try {
+      parseSheet(rows);
+      hide('loadingState'); show('dashContent');
+      document.getElementById('lastFetched').textContent = 'Last synced: ' + new Date().toLocaleString();
+      setSyncStatus('ok', 'Live · ' + ALL_MONTHS_FULL[latestDataIdx]);
+      buildAll();
+    } catch(err) {
+      hide('loadingState'); show('errorState');
+      document.getElementById('errorMsg').textContent = 'Data parsed with error: ' + err.message;
+      setSyncStatus('err','Parse error');
+    }
+  };
+
+  const script = document.createElement('script');
+  script.id = 'jsonpScript';
+  script.src = url;
+  script.onerror = () => {
+    cleanup();
+    hide('loadingState'); show('errorState');
+    document.getElementById('errorMsg').textContent = 'Could not load the Apps Script. Make sure deployment access is set to "Anyone".';
+    setSyncStatus('err','Connection failed');
+  };
+  document.head.appendChild(script);
+}
+
+function show(id){ document.getElementById(id).style.display=''; }
+function hide(id){ document.getElementById(id).style.display='none'; }
+function setSyncStatus(state,label){
+  const el=document.getElementById('syncStatus');
+  const dot=el.querySelector('.sync-dot');
+  el.className='sync-status '+state;
+  dot.className='sync-dot'+(state==='loading'?' pulse':'');
+  document.getElementById('syncLabel').textContent=label;
+}
+
+function parseSheet(rows) {
+  // Build lookup by trimmed row label
+  const lookup = {};
+  rows.forEach(row => {
+    if (!row[0]) return;
+    const k = String(row[0]).trim();
+    if (!lookup[k]) lookup[k] = row; // first match wins
+  });
+
+  // Detect which months (cols 1-12) have real data
+  // A column "has data" if ANY key row has a nonzero, non-empty value in it
+  const hasData = Array(12).fill(false);
+  rows.forEach(row => {
+    for (let c = 1; c <= 12; c++) {
+      const v = row[c];
+      if (v !== '' && v !== null && v !== undefined && v !== 0 && v !== '0') {
+        // Skip percentage strings
+        if (typeof v === 'string' && v.includes('%')) return;
+        hasData[c-1] = true;
+      }
+    }
+  });
+  dataMonths = [];
+  for (let i = 0; i < 12; i++) { if (hasData[i]) dataMonths.push(i); }
+  // Fallback: if nothing detected, use col 1
+  if (dataMonths.length === 0) dataMonths = [0];
+  latestDataIdx = dataMonths[dataMonths.length - 1];
+
+  // Parse each mapped key
+  Object.keys(ROW_MAP).forEach(k => {
+    const label = ROW_MAP[k];
+    let row = lookup[label];
+    // Fallback: trimmed starts-with match (handles leading spaces in sheet)
+    if (!row) {
+      const found = Object.keys(lookup).find(l => l.replace(/^\s+/,'') === label.trim());
+      if (found) row = lookup[found];
+    }
+    D[k] = Array(12).fill(null);
+    if (!row) return;
+    for (let c = 1; c <= 12; c++) {
+      if (!hasData[c-1]) continue; // don't parse future months
+      const raw = row[c];
+      if (raw === '' || raw === null || raw === undefined) continue;
+      if (typeof raw === 'string' && raw.includes('%')) {
+        // Store as decimal (e.g. "2.10%" → 0.021)
+        D[k][c-1] = parseFloat(raw) / 100;
+        continue;
+      }
+      const n = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/,/g,''));
+      if (!isNaN(n) && n !== 0) D[k][c-1] = n;
+    }
+  });
+
+  // Special: click rate may already be decimal from sheet
+  // Normalise: if all values < 0.5 assume already decimal, else divide by 100
+  const cr = D.clickRate.filter(v => v !== null);
+  if (cr.length > 0 && cr.every(v => v > 0.5)) {
+    D.clickRate = D.clickRate.map(v => v === null ? null : v / 100);
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function fmt(n,decimals) {
+  if (n === null || n === undefined) return '—';
+  if (typeof n === 'number' && n < 1 && n > 0) return (n*100).toFixed(1)+'%'; // click rate
+  if (n >= 1000000) return (n/1000000).toFixed(2)+'M';
+  if (n >= 1000) return Math.round(n/1000)+'K';
+  return Math.round(n).toLocaleString();
+}
+function fmtFull(n) {
+  if (n === null || n === undefined) return '—';
+  if (typeof n === 'number' && n < 1 && n > 0) return (n*100).toFixed(2)+'%';
+  return Math.round(n).toLocaleString();
+}
+function pct(a,b) { return (b===null||b===0||a===null) ? null : ((a-b)/b*100); }
+function ytdSum(arr) { return dataMonths.reduce((s,i)=> s+(arr[i]||0), 0); }
+function ytdAvg(arr) {
+  const vals = dataMonths.map(i=>arr[i]).filter(v=>v!==null);
+  return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+}
+function quarters(arr) {
+  return [0,1,2,3].map(q => {
+    const slice = [0,1,2].map(m => arr[q*3+m]);
+    const hasAny = slice.some(v=>v!==null);
+    if (!hasAny) return null;
+    const total = slice.reduce((s,v)=>s+(v||0),0);
+    const complete = slice.every(v=>v!==null);
+    return { total, complete, partial:!complete };
+  });
+}
+
+const gc='rgba(0,0,0,0.05)', tc='#888780';
+const chartInstances={};
+function makeChart(id,config){
+  if(chartInstances[id]) chartInstances[id].destroy();
+  const el=document.getElementById(id);
+  if(!el) return;
+  chartInstances[id]=new Chart(el,config);
+}
+function baseOpts(){
+  return {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6}},
+    scales:{x:{grid:{display:false},ticks:{color:tc,font:{size:11,family:'IBM Plex Sans'}}},
+            y:{grid:{color:gc},ticks:{color:tc,font:{size:11,family:'IBM Plex Sans'},callback:v=>fmt(v)}}}
+  };
+}
+function activeLabels(){ return dataMonths.map(i=>ALL_MONTHS[i]); }
+function activeData(arr){ return dataMonths.map(i=>arr[i]); }
+function lineDS(arr,color,label,fill){
+  return {label,data:activeData(arr),borderColor:color,backgroundColor:fill?color+'22':'transparent',
+    fill:!!fill,tension:0.35,pointRadius:3,pointBackgroundColor:color,borderWidth:2,spanGaps:false};
+}
+function barDS(arr,color,label){
+  return {label,data:activeData(arr),backgroundColor:color+'cc',borderRadius:5};
+}
+function makeLineChart(id,datasets,multi){
+  makeChart(id,{type:'line',data:{labels:activeLabels(),datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{mode:multi?'index':'nearest',intersect:false,
+        backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6,
+        callbacks:{label:ctx=>' '+(ctx.dataset.label?ctx.dataset.label+': ':'')+fmtFull(ctx.parsed.y)}}},
+      scales:{x:{grid:{display:false},ticks:{color:tc,font:{size:10},autoSkip:false,maxRotation:0}},
+              y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>fmt(v)}}}}
+  });
+}
+function makeQoQChart(id,arr,color){
+  const qs=quarters(arr);
+  const labels=['Q1 Oct–Dec','Q2 Jan–Mar','Q3 Apr–Jun','Q4 Jul–Sep'];
+  const vals=qs.map(q=>q?q.total:null);
+  const maxVal=Math.max(...vals.filter(v=>v!==null));
+  const colors=qs.map(q=>{
+    if(!q) return color+'22';
+    if(q.partial) return color+'66';
+    return q.total===maxVal?color:color+'99';
+  });
+  makeChart(id,{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors,borderRadius:6}]},
+    options:{...baseOpts(),plugins:{legend:{display:false},
+      tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6,
+        callbacks:{label:ctx=>ctx.parsed.y===null?' No data yet':' '+fmtFull(ctx.parsed.y)+(qs[ctx.dataIndex]?.partial?' (partial)':'')}}}}
+  });
+}
+
+// ── Month picker ──────────────────────────────────────────────────────────
+function buildPicker(id){
+  const sel=document.getElementById(id); if(!sel) return;
+  sel.innerHTML='';
+  dataMonths.forEach(i=>{
+    const o=document.createElement('option');
+    o.value=i; o.textContent=ALL_MONTHS_FULL[i];
+    if(i===latestDataIdx) o.selected=true;
+    sel.appendChild(o);
+  });
+}
+function momCard(val,prevVal,label,color){
+  const d=pct(val,prevVal);
+  const cls=d===null?'neu':d>1?'up':d<-1?'down':'neu';
+  const arrow=d===null?'':d>0?'↑':'↓';
+  const dStr=d===null?(prevVal===null?'No prior data':'—'):`${arrow} ${Math.abs(d).toFixed(1)}%`;
+  return `<div class="stat-card" style="--accent-color:${color}">
+    <div class="stat-label">${label}</div>
+    <div class="stat-num sm ${val===null?'na':''}">${fmt(val)}</div>
+    <span class="stat-change ${cls}">${dStr}</span>
+  </div>`;
+}
+function setupMoM(pickerId,rowId,cols){
+  buildPicker(pickerId);
+  const update=mi=>{
+    const row=document.getElementById(rowId);
+    if(row) row.innerHTML=cols.map(c=>momCard(D[c.key][mi],mi>0?D[c.key][mi-1]:null,c.label,c.color)).join('');
+  };
+  update(latestDataIdx);
+  const sel=document.getElementById(pickerId);
+  if(sel) sel.addEventListener('change',e=>update(parseInt(e.target.value)));
+}
+
+// ── YTD Banner ────────────────────────────────────────────────────────────
+function buildYTDBanner(){
+  const ytdART=ytdSum(D.art);
+  const pips=ALL_MONTHS.map((m,i)=>`<div class="month-pip-wrap">
+    <div class="month-pip ${dataMonths.includes(i)?'has-data':''}"></div>
+    <div class="month-pip-label">${m}</div></div>`).join('');
+  document.getElementById('ytdBanner').innerHTML=`
+    <div>
+      <div class="ytd-label">YTD through ${ALL_MONTHS_FULL[latestDataIdx]}</div>
+      <div class="ytd-val">ART: ${fmt(ytdART)} &nbsp;·&nbsp; ${dataMonths.length} of 12 months complete</div>
+    </div>
+    <div>
+      <div style="display:flex;gap:4px;align-items:flex-start">${pips}</div>
+      <div style="display:flex;gap:12px;margin-top:5px;font-size:10px;color:var(--mid)">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:6px;background:var(--teal);border-radius:2px;display:inline-block"></span>Has data</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:6px;background:rgba(255,255,255,0.1);border-radius:2px;display:inline-block"></span>Pending</span>
+      </div>
+    </div>`;
+}
+
+// ── Tables ────────────────────────────────────────────────────────────────
+function buildMonthlyTable(id,cols,showTotal){
+  const tbl=document.getElementById(id); if(!tbl) return;
+  let html='<thead><tr><th>Month</th>';
+  cols.forEach(c=>{html+=`<th>${c.label}</th><th>MoM</th>`;});
+  html+='</tr></thead><tbody>';
+  ALL_MONTHS_FULL.forEach((m,i)=>{
+    const inData=dataMonths.includes(i);
+    html+=`<tr><td>${m}</td>`;
+    cols.forEach(c=>{
+      const v=D[c.key][i];
+      const prev=i>0?D[c.key][i-1]:null;
+      if(!inData||v===null){html+=`<td class="na-cell">—</td><td class="na-cell">—</td>`;}
+      else{
+        const d=pct(v,prev);
+        html+=`<td>${fmtFull(v)}</td>`;
+        if(d===null) html+=`<td class="tbl-neu">—</td>`;
+        else{const cls=d>0?'tbl-up':d<0?'tbl-down':'tbl-neu';const arrow=d>0?'▲':'▼';html+=`<td class="${cls}">${arrow} ${Math.abs(d).toFixed(1)}%</td>`;}
+      }
+    });
+    html+='</tr>';
+  });
+  if(showTotal){
+    html+=`<tr style="font-weight:700;border-top:1.5px solid var(--lt)"><td>YTD Total/Avg</td>`;
+    cols.forEach(c=>{
+      const isRate=c.key==='clickRate';
+      const val=isRate?ytdAvg(D[c.key]):ytdSum(D[c.key]);
+      html+=`<td>${fmtFull(val)}</td><td></td>`;
+    });
+    html+='</tr>';
+  }
+  html+='</tbody>';
+  tbl.innerHTML=html;
+}
+
+function buildQoQTable(id,rows){
+  const tbl=document.getElementById(id); if(!tbl) return;
+  let html='<thead><tr><th>Platform</th><th>Q1</th><th>Q2</th><th>QoQ</th><th>Q3</th><th>QoQ</th><th>Q4</th><th>QoQ</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    const qs=quarters(D[r.key]);
+    const ind=r.indent?'color:var(--mid);font-weight:400;padding-left:22px;font-size:12px;':'';
+    html+=`<tr><td style="${ind}">${r.label}</td>`;
+    qs.forEach((q,i)=>{
+      if(!q){html+=`<td class="na-cell">—</td>`;}
+      else{html+=`<td>${fmt(q.total)}${q.partial?'*':''}</td>`;}
+      if(i>0){
+        const prev=qs[i-1];
+        if(!q||!prev){html+=`<td class="na-cell">—</td>`;}
+        else if(q.partial||prev.partial){html+=`<td><span class="badge-partial">partial</span></td>`;}
+        else{const d=pct(q.total,prev.total);if(d===null){html+=`<td class="na-cell">—</td>`;}
+          else{const cls=d>0?'badge-up':d<0?'badge-down':'badge-neu';const arrow=d>0?'▲':'▼';html+=`<td><span class="${cls}">${arrow} ${Math.abs(d).toFixed(1)}%</span></td>`;}}
+      }
+    });
+    html+='</tr>';
+  });
+  html+='</tbody><tfoot><tr><td colspan="8" style="font-size:10px;color:var(--mid);padding:8px 12px;">* Partial quarter &nbsp;|&nbsp; — No data yet</td></tr></tfoot>';
+  tbl.innerHTML=html;
+}
+
+function topStatRow(id,cards){
+  const row=document.getElementById(id); if(!row) return;
+  row.innerHTML=cards.map(c=>{
+    const d=c.delta;
+    const cls=d===null?'neu':d>1?'up':d<-1?'down':'neu';
+    const arrow=d===null?'':d>0?'↑':'↓';
+    const dStr=d===null?c.note||'YTD':`${arrow} ${Math.abs(d).toFixed(1)}% ${c.note||''}`;
+    return `<div class="stat-card" style="--accent-color:${c.color}">
+      <div class="stat-label">${c.label}</div>
+      <div class="stat-num sm">${fmt(c.val)}</div>
+      <span class="stat-change ${cls}">${dStr}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Build sections ────────────────────────────────────────────────────────
+function buildAll(){
+  buildYTDBanner();
+  buildOverview();
+  buildRadio();
+  buildDigital();
+  buildWebsite();
+  buildSocial();
+  buildApp();
+  buildNewsletter();
+  buildApple();
+}
+
+function buildOverview(){
+  const li=latestDataIdx;
+  document.getElementById('ovTitle').textContent=`FY2026 — Audience Reach · YTD through ${ALL_MONTHS_FULL[li]}`;
+  topStatRow('ovStatRow',[
+    {label:'ART (latest month)',  val:D.art[li],     delta:pct(D.art[li],D.art[li-1]),       color:'#036EBB',note:'MoM'},
+    {label:'YTD Total ART',       val:ytdSum(D.art), delta:null,                              color:'#036EBB',note:'YTD'},
+    {label:'Radio (latest)',       val:D.radio[li],   delta:pct(D.radio[li],D.radio[li-1]),   color:'#036EBB',note:'MoM'},
+    {label:'Digital (latest)',     val:D.digital[li], delta:pct(D.digital[li],D.digital[li-1]),color:'#E8A020',note:'MoM'},
+    {label:'Website (latest)',     val:D.web[li],     delta:pct(D.web[li],D.web[li-1]),       color:'#534AB7',note:'MoM'},
+    {label:'Social organic (latest)',val:D.social[li],delta:pct(D.social[li],D.social[li-1]),color:'#D85A30',note:'MoM'},
+  ]);
+  makeLineChart('ovArtChart',[lineDS(D.art,'#036EBB','ART',true)],false);
+  const mixKeys  =['radio','digital','web','social','app','newsletter','apple'];
+  const mixColors=['#036EBB','#E8A020','#534AB7','#D85A30','#025A96','#3B6D11','#888780'];
+  const mixLabels=['Radio','Digital Listening','Website','Social','Mobile App','Newsletter','Apple News'];
+  const mixTotals=mixKeys.map(k=>ytdSum(D[k]));
+  document.getElementById('ovMixLegend').innerHTML=mixLabels.map((l,i)=>`<div class="legend-item"><span class="legend-dot" style="background:${mixColors[i]}"></span>${l}</div>`).join('');
+  makeChart('ovMixChart',{type:'doughnut',data:{labels:mixLabels,datasets:[{data:mixTotals,backgroundColor:mixColors,borderWidth:0,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6,
+        callbacks:{label:ctx=>' '+ctx.label+': '+fmt(ctx.parsed)}}}}
+  });
+  makeQoQChart('ovQoQChart',D.art,'#036EBB');
+  document.getElementById('ovTrendLegend').innerHTML=mixLabels.slice(0,5).map((l,i)=>`<div class="legend-item"><span class="legend-dot" style="background:${mixColors[i]}"></span>${l}</div>`).join('');
+  makeLineChart('ovTrendChart',mixKeys.slice(0,5).map((k,i)=>lineDS(D[k],mixColors[i],mixLabels[i],false)),true);
+  buildQoQTable('ovQTable',[
+    {label:'Radio Listening',key:'radio'},
+    {label:'Digital Listening',key:'digital'},
+    {label:'— Live Streams',key:'streams',indent:true},{label:'— Story Audio',key:'story',indent:true},
+    {label:'— Newscast',key:'newscast',indent:true},{label:'— NPR One',key:'nprone',indent:true},{label:'— Podcasts',key:'podcasts',indent:true},
+    {label:'Website Users',key:'web'},
+    {label:'Social Organic Total',key:'social'},
+    {label:'— Facebook',key:'facebook',indent:true},{label:'— Instagram',key:'instagram',indent:true},{label:'— YouTube',key:'youtube',indent:true},
+    {label:'Mobile App',key:'app'},{label:'Newsletter Opens',key:'newsletter'},{label:'Apple News',key:'apple'},
+  ]);
+}
+
+function buildRadio(){
+  const li=latestDataIdx;
+  topStatRow('radioTopRow',[
+    {label:'YTD Total',  val:ytdSum(D.radio),  delta:null,                              color:'#036EBB',note:'YTD'},
+    {label:'Latest Month',val:D.radio[li],     delta:pct(D.radio[li],D.radio[li-1]),   color:'#036EBB',note:'MoM'},
+    {label:'90.7 WMFE',   val:D.wmfe[li],      delta:pct(D.wmfe[li],D.wmfe[li-1]),     color:'#036EBB',note:'MoM'},
+    {label:'89.5 WMFV',   val:D.wmfv[li],      delta:pct(D.wmfv[li],D.wmfv[li-1]),     color:'#E8A020',note:'MoM'},
+    {label:'HD2',          val:D.hd2[li],       delta:pct(D.hd2[li],D.hd2[li-1]),       color:'#35C934',note:'MoM'},
+  ]);
+  setupMoM('radioMonthPicker','radioMoMRow',[
+    {label:'Total Radio',key:'radio',color:'#036EBB'},
+    {label:'90.7 WMFE',key:'wmfe',color:'#036EBB'},
+    {label:'89.5 WMFV',key:'wmfv',color:'#E8A020'},
+    {label:'HD2',key:'hd2',color:'#35C934'},
+  ]);
+  makeChart('radioBreakdownChart',{type:'bar',data:{labels:activeLabels(),datasets:[barDS(D.wmfe,'#036EBB','90.7 WMFE'),barDS(D.wmfv,'#E8A020','89.5 WMFV'),barDS(D.hd2,'#35C934','HD2')]},
+    options:{...baseOpts(),plugins:{legend:{display:true,labels:{color:'#888780',font:{size:11},boxWidth:10,boxHeight:10}},
+      tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6}}}
+  });
+  makeQoQChart('radioQoQChart',D.radio,'#036EBB');
+  buildMonthlyTable('radioTable',[{label:'WMFE 90.7',key:'wmfe'},{label:'WMFV 89.5',key:'wmfv'},{label:'HD2',key:'hd2'},{label:'Total',key:'radio'}],true);
+}
+
+function buildDigital(){
+  const li=latestDataIdx;
+  const subKeys  =['streams','story','newscast','nprone','podcasts'];
+  const subColors=['#036EBB','#534AB7','#3B6D11','#E8A020','#D85A30'];
+  const subShort =['Live Streams','Story Audio','Newscast','NPR One','Podcasts'];
+  topStatRow('digitalTopRow',[
+    {label:'YTD Total',    val:ytdSum(D.digital), delta:null,                                    color:'#E8A020',note:'YTD'},
+    {label:'Latest Month', val:D.digital[li],     delta:pct(D.digital[li],D.digital[li-1]),     color:'#E8A020',note:'MoM'},
+    {label:'Live Streams', val:D.streams[li],     delta:pct(D.streams[li],D.streams[li-1]),     color:'#036EBB',note:'MoM'},
+    {label:'Story Audio',  val:D.story[li],       delta:pct(D.story[li],D.story[li-1]),         color:'#534AB7',note:'MoM'},
+    {label:'Podcasts',     val:D.podcasts[li],    delta:pct(D.podcasts[li],D.podcasts[li-1]),   color:'#D85A30',note:'MoM'},
+  ]);
+  setupMoM('digitalMonthPicker','digitalMoMRow',
+    subKeys.map((k,i)=>({label:subShort[i],key:k,color:subColors[i]}))
+  );
+  document.getElementById('digitalMultiLegend').innerHTML=subShort.map((l,i)=>`<div class="legend-item"><span class="legend-dot" style="background:${subColors[i]}"></span>${l}</div>`).join('');
+  makeLineChart('digitalMultiChart',subKeys.map((k,i)=>lineDS(D[k],subColors[i],subShort[i],false)),true);
+  makeLineChart('digitalStreamsPodChart',[lineDS(D.streams,'#036EBB','Live Streams',true),lineDS(D.podcasts,'#D85A30','Podcasts',false)],true);
+  document.getElementById('digitalQoQLegend').innerHTML=subShort.map((l,i)=>`<div class="legend-item"><span class="legend-dot" style="background:${subColors[i]}"></span>${l}</div>`).join('');
+  makeChart('digitalQoQChart',{type:'bar',data:{labels:['Q1 Oct–Dec','Q2 Jan–Mar','Q3 Apr–Jun','Q4 Jul–Sep'],
+    datasets:subKeys.map((k,i)=>({label:subShort[i],data:quarters(D[k]).map(q=>q?q.total:null),backgroundColor:subColors[i]+'bb',borderRadius:4}))},
+    options:{...baseOpts(),plugins:{legend:{display:false},tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6,
+      callbacks:{label:ctx=>' '+ctx.dataset.label+': '+fmtFull(ctx.parsed.y)}}}}
+  });
+  buildMonthlyTable('digitalTable',[{label:'Live Streams',key:'streams'},{label:'Story Audio',key:'story'},{label:'Newscast',key:'newscast'},{label:'NPR One',key:'nprone'},{label:'Podcasts',key:'podcasts'},{label:'Total',key:'digital'}],true);
+}
+
+function buildWebsite(){
+  const li=latestDataIdx;
+  topStatRow('webTopRow',[
+    {label:'YTD Total Users', val:ytdSum(D.web),      delta:null,                          color:'#534AB7',note:'YTD'},
+    {label:'Latest Month',    val:D.web[li],           delta:pct(D.web[li],D.web[li-1]),   color:'#534AB7',note:'MoM'},
+    {label:'Organic Users',   val:D.organic[li],       delta:pct(D.organic[li],D.organic[li-1]),color:'#534AB7',note:'MoM'},
+    {label:'Referral Users',  val:D.referral[li],      delta:pct(D.referral[li],D.referral[li-1]),color:'#888780',note:'MoM'},
+  ]);
+  setupMoM('webMonthPicker','webMoMRow',[
+    {label:'Total Users',key:'web',color:'#534AB7'},
+    {label:'Organic',key:'organic',color:'#534AB7'},
+    {label:'Referral',key:'referral',color:'#888780'},
+  ]);
+  makeChart('webStackChart',{type:'bar',data:{labels:activeLabels(),datasets:[barDS(D.organic,'#534AB7','Organic'),barDS(D.referral,'#888780','Referral')]},
+    options:{...baseOpts(),plugins:{legend:{display:true,labels:{color:'#888780',font:{size:11},boxWidth:10,boxHeight:10}},
+      tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6}}}
+  });
+  makeQoQChart('webQoQChart',D.web,'#534AB7');
+  buildMonthlyTable('webTable',[{label:'Organic',key:'organic'},{label:'Referral',key:'referral'},{label:'Total Users',key:'web'}],true);
+}
+
+function buildSocial(){
+  const li=latestDataIdx;
+  topStatRow('socialTopRow',[
+    {label:'FB Organic (latest)',  val:D.facebook[li],  delta:pct(D.facebook[li],D.facebook[li-1]),   color:'#1877F2',note:'MoM'},
+    {label:'IG Organic (latest)',  val:D.instagram[li], delta:pct(D.instagram[li],D.instagram[li-1]), color:'#C13584',note:'MoM'},
+    {label:'YouTube Viewers',      val:D.youtube[li],   delta:pct(D.youtube[li],D.youtube[li-1]),     color:'#FF0000',note:'MoM'},
+    {label:'TikTok Views',         val:D.tiktok[li],    delta:pct(D.tiktok[li],D.tiktok[li-1]),       color:'#2C2C2A',note:'MoM'},
+    {label:'Total Organic Reach',  val:D.social[li],    delta:pct(D.social[li],D.social[li-1]),       color:'#D85A30',note:'MoM'},
+    {label:'Social Followers',     val:D.socialFollowers[li],delta:pct(D.socialFollowers[li],D.socialFollowers[li-1]),color:'#D85A30',note:'MoM'},
+  ]);
+  setupMoM('socialMonthPicker','socialMoMRow',[
+    {label:'Total Organic',key:'social',color:'#D85A30'},
+    {label:'Facebook',key:'facebook',color:'#1877F2'},
+    {label:'Instagram',key:'instagram',color:'#C13584'},
+    {label:'YouTube Viewers',key:'youtube',color:'#FF0000'},
+    {label:'TikTok Views',key:'tiktok',color:'#2C2C2A'},
+  ]);
+  makeLineChart('socialReachChart',[lineDS(D.facebook,'#1877F2','Facebook',false),lineDS(D.instagram,'#C13584','Instagram',false),lineDS(D.youtube,'#FF0000','YouTube',false)],true);
+  makeQoQChart('socialQoQChart',D.social,'#D85A30');
+  const folKeys  =['fbFollowers','igFollowers','ytFollowers','tkFollowers','liFollowers'];
+  const folColors=['#1877F2','#C13584','#FF0000','#2C2C2A','#0A66C2'];
+  const folLabels=['Facebook','Instagram','YouTube','TikTok','LinkedIn'];
+  document.getElementById('followerLegend').innerHTML=folLabels.map((l,i)=>`<div class="legend-item"><span class="legend-dot" style="background:${folColors[i]}"></span>${l}</div>`).join('');
+  makeLineChart('followerChart',folKeys.map((k,i)=>lineDS(D[k],folColors[i],folLabels[i],false)),true);
+  makeChart('tiktokChart',{type:'bar',data:{labels:activeLabels(),datasets:[{data:activeData(D.tiktok),backgroundColor:'#2C2C2Acc',borderRadius:5}]},
+    options:{...baseOpts(),plugins:{legend:{display:false},tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6,callbacks:{label:ctx=>' '+fmtFull(ctx.parsed.y)+' views'}}}}
+  });
+  buildMonthlyTable('socialTable',[
+    {label:'Facebook Organic',key:'facebook'},{label:'FB Followers',key:'fbFollowers'},
+    {label:'Instagram Organic',key:'instagram'},{label:'IG Followers',key:'igFollowers'},
+    {label:'YouTube Viewers',key:'youtube'},{label:'YT Followers',key:'ytFollowers'},
+    {label:'TikTok Views',key:'tiktok'},{label:'TK Followers',key:'tkFollowers'},
+    {label:'Total Organic',key:'social'},
+  ],true);
+}
+
+function buildApp(){
+  const li=latestDataIdx;
+  topStatRow('appTopRow',[
+    {label:'YTD Total',    val:ytdSum(D.app),  delta:null,                          color:'#025A96',note:'YTD'},
+    {label:'Monthly Avg',  val:ytdAvg(D.app),  delta:null,                          color:'#025A96',note:'avg'},
+    {label:'Latest Month', val:D.app[li],       delta:pct(D.app[li],D.app[li-1]),  color:'#025A96',note:'MoM'},
+  ]);
+  setupMoM('appMonthPicker','appMoMRow',[{label:'Monthly Active Users',key:'app',color:'#025A96'}]);
+  const maxApp=Math.max(...D.app.filter(v=>v!==null));
+  makeChart('appChart',{type:'bar',data:{labels:activeLabels(),datasets:[{data:activeData(D.app),backgroundColor:activeData(D.app).map(v=>v===maxApp?'#025A96':'#025A9677'),borderRadius:5}]},
+    options:{...baseOpts(),plugins:{legend:{display:false},tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6,callbacks:{label:ctx=>' '+fmtFull(ctx.parsed.y)+' users'}}}}
+  });
+  makeQoQChart('appQoQChart',D.app,'#025A96');
+  buildMonthlyTable('appTable',[{label:'Monthly Active Users',key:'app'}],true);
+}
+
+function buildNewsletter(){
+  const li=latestDataIdx;
+  topStatRow('newsletterTopRow',[
+    {label:'YTD Total Opens', val:ytdSum(D.newsletter), delta:null,                                        color:'#3B6D11',note:'YTD'},
+    {label:'Latest Month',    val:D.newsletter[li],     delta:pct(D.newsletter[li],D.newsletter[li-1]),   color:'#3B6D11',note:'MoM'},
+    {label:'Avg Click Rate',  val:ytdAvg(D.clickRate),  delta:null,                                        color:'#3B6D11',note:'avg'},
+    {label:'Latest Click Rate',val:D.clickRate[li],     delta:pct(D.clickRate[li],D.clickRate[li-1]),     color:'#3B6D11',note:'MoM'},
+  ]);
+  setupMoM('newsletterMonthPicker','newsletterMoMRow',[
+    {label:'Opens',key:'newsletter',color:'#3B6D11'},
+    {label:'Click Rate',key:'clickRate',color:'#3B6D11'},
+  ]);
+  makeLineChart('newsletterChart',[lineDS(D.newsletter,'#3B6D11','Opens',true)],false);
+  // Click rate chart — percent axis
+  makeChart('clickRateChart',{type:'bar',data:{labels:activeLabels(),datasets:[{data:activeData(D.clickRate).map(v=>v===null?null:+(v*100).toFixed(2)),backgroundColor:'#3B6D11cc',borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6,callbacks:{label:ctx=>' '+ctx.parsed.y.toFixed(2)+'%'}}},
+      scales:{x:{grid:{display:false},ticks:{color:tc,font:{size:11}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:11},callback:v=>v+'%'}}}}
+  });
+  buildMonthlyTable('newsletterTable',[{label:'Opens',key:'newsletter'},{label:'Click Rate',key:'clickRate'}],true);
+}
+
+function buildApple(){
+  const li=latestDataIdx;
+  topStatRow('appleTopRow',[
+    {label:'YTD Total',    val:ytdSum(D.apple),  delta:null,                            color:'#888780',note:'YTD'},
+    {label:'Monthly Avg',  val:ytdAvg(D.apple),  delta:null,                            color:'#888780',note:'avg'},
+    {label:'Latest Month', val:D.apple[li],       delta:pct(D.apple[li],D.apple[li-1]),color:'#888780',note:'MoM'},
+  ]);
+  setupMoM('appleMonthPicker','appleMoMRow',[{label:'Unique Reach',key:'apple',color:'#888780'}]);
+  const maxApple=Math.max(...D.apple.filter(v=>v!==null));
+  makeChart('appleChart',{type:'bar',data:{labels:activeLabels(),datasets:[{data:activeData(D.apple),backgroundColor:activeData(D.apple).map(v=>v===maxApple?'#444441':'#44444177'),borderRadius:5}]},
+    options:{...baseOpts(),plugins:{legend:{display:false},tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6,callbacks:{label:ctx=>' '+fmtFull(ctx.parsed.y)+' reach'}}}}
+  });
+  makeQoQChart('appleQoQChart',D.apple,'#888780');
+  buildMonthlyTable('appleTable',[{label:'Unique Reach',key:'apple'}],true);
+}
+
+// ── Nav ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('.pnav-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.pnav-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.platform-view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    setTimeout(buildAll,50);
+  });
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
