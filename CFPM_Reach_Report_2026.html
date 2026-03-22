@@ -222,6 +222,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Quarter over Quarter</div><div class="chart-wrap" style="height:240px"><canvas id="webQoQChart"></canvas></div></div>
       </div>
       <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="webTable"></table></div>
+      <div id="webInsightsContainer"></div>
       <div class="chart-card mb">
         <div class="chart-title" style="margin-bottom:4px">Top 25 Pages</div>
         <div style="font-size:11px;color:var(--mid);margin-bottom:14px;">Source: Google Analytics · refreshes automatically with sheet</div>
@@ -547,6 +548,91 @@ function parseGASheet(text) {
   }
 }
 
+function buildWebInsights() {
+  const container = document.getElementById('webInsightsContainer');
+  if (!container || GA_PAGES.length === 0) return;
+
+  // Only article pages (exclude homepage, schedules, static pages)
+  const articles = GA_PAGES.filter(p => p.path.split('/').length >= 4 && !p.path.match(/^\/?$/));
+
+  // 1. Top beat by total page views
+  const beatMap = {};
+  const beatDur = {};
+  const beatCount = {};
+  articles.forEach(p => {
+    const parts = p.path.split('/').filter(Boolean);
+    const beat = parts.length >= 2 ? parts[0] : null;
+    if (!beat || beat.length < 3) return;
+    beatMap[beat]   = (beatMap[beat]   || 0) + p.views;
+    beatDur[beat]   = (beatDur[beat]   || 0) + p.duration;
+    beatCount[beat] = (beatCount[beat] || 0) + 1;
+  });
+  const topBeat = Object.entries(beatMap).sort((a,b) => b[1]-a[1])[0];
+  const topBeatName = topBeat ? topBeat[0].replace(/-/g,' ') : null;
+  const topBeatViews = topBeat ? topBeat[1] : 0;
+  const topBeatAvgDur = topBeat ? beatDur[topBeat[0]] / beatCount[topBeat[0]] : 0;
+
+  // 2. Breakout story — highest views single article vs average
+  const avgViews = articles.reduce((s,p) => s + p.views, 0) / (articles.length || 1);
+  const breakout = articles.reduce((best, p) => p.views > (best ? best.views : 0) ? p : best, null);
+  const breakoutMultiple = breakout ? (breakout.views / avgViews).toFixed(1) : 0;
+
+  // 3. Longest engagement beat
+  const beatAvgDurs = Object.entries(beatDur).map(([beat, total]) => ({
+    beat, avg: total / beatCount[beat], count: beatCount[beat]
+  })).filter(b => b.count >= 2).sort((a,b) => b.avg - a.avg);
+  const engBeat = beatAvgDurs[0];
+
+  // 4. Most stories in top 25 from one beat
+  const topVolBeat = Object.entries(beatCount).sort((a,b) => b[1]-a[1])[0];
+
+  const insights = [];
+
+  if (topBeat) {
+    insights.push({
+      tag: 'Top Beat',
+      color: '#036EBB',
+      title: `${topBeatName.charAt(0).toUpperCase()+topBeatName.slice(1)} is driving the most traffic`,
+      body: `Stories tagged under <strong>${topBeatName}</strong> account for ${topBeatViews.toLocaleString()} page views in this period — more than any other content category in the top 25.`
+    });
+  }
+
+  if (breakout && breakoutMultiple > 1.5) {
+    insights.push({
+      tag: 'Breakout Story',
+      color: '#E8A020',
+      title: `One story is pulling ${breakoutMultiple}x the average traffic`,
+      body: `"${breakout.title.length > 80 ? breakout.title.substring(0,80)+'…' : breakout.title}" has ${breakout.views.toLocaleString()} views — well above the top-25 average of ${Math.round(avgViews).toLocaleString()}. This format or topic is worth repeating.`
+    });
+  }
+
+  if (engBeat && engBeat.count >= 2) {
+    const mins = Math.floor(engBeat.avg / 60);
+    const secs = Math.round(engBeat.avg % 60);
+    insights.push({
+      tag: 'Engagement',
+      color: '#3B6D11',
+      title: `${engBeat.beat.replace(/-/g,' ')} content keeps readers longest`,
+      body: `Average session duration on <strong>${engBeat.beat.replace(/-/g,' ')}</strong> stories is ${mins}m ${secs}s — the highest of any beat with multiple stories in the top 25. Deep-read content in this category is resonating.`
+    });
+  }
+
+  // Fallback if not enough article data
+  if (insights.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = `<div class="insight-grid" style="margin-bottom:1.25rem">${
+    insights.slice(0,3).map(ins => `
+      <div class="insight-card" style="--accent-color:${ins.color}">
+        <div class="insight-tag">${ins.tag}</div>
+        <div class="insight-title">${ins.title}</div>
+        <div class="insight-body">${ins.body}</div>
+      </div>`).join('')
+  }</div>`;
+}
+
 function buildTopPagesTable() {
   const container = document.getElementById('topPagesContainer');
   if (!container) return;
@@ -554,6 +640,7 @@ function buildTopPagesTable() {
     container.innerHTML = '<p style="color:var(--mid);font-size:13px;padding:1rem 0;">No page data available.</p>';
     return;
   }
+  buildWebInsights();
   const pages = GA_PAGES.slice(0, 25);
   let html = `<table class="data-table" style="font-size:12px;">
     <thead><tr>
