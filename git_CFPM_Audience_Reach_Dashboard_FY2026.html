@@ -337,49 +337,25 @@ async function loadData() {
   setSyncStatus('loading','Connecting to sheet…');
   show('loadingState'); hide('errorState'); hide('dashContent');
 
-  // Use JSONP to bypass CORS — Apps Script supports ?callback= natively
-  const callbackName = 'cfpmSheetCallback_' + Date.now();
-  const url = APPS_SCRIPT_URL + '?callback=' + callbackName;
+  // Route through allorigins.win proxy to handle Google redirect chain + CORS
+  const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(APPS_SCRIPT_URL);
 
-  const timeout = setTimeout(() => {
-    cleanup();
+  try {
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error('Proxy returned HTTP ' + res.status);
+    const wrapper = await res.json();
+    if (!wrapper.contents) throw new Error('Empty response from proxy');
+    const rows = JSON.parse(wrapper.contents);
+    parseSheet(rows);
+    hide('loadingState'); show('dashContent');
+    document.getElementById('lastFetched').textContent = 'Last synced: ' + new Date().toLocaleString();
+    setSyncStatus('ok', 'Live · ' + ALL_MONTHS_FULL[latestDataIdx]);
+    buildAll();
+  } catch(err) {
     hide('loadingState'); show('errorState');
-    document.getElementById('errorMsg').textContent = 'Request timed out. Check that the Apps Script is deployed as "Anyone" and try again.';
+    document.getElementById('errorMsg').textContent = 'Error: ' + err.message;
     setSyncStatus('err','Connection failed');
-  }, 15000);
-
-  function cleanup() {
-    clearTimeout(timeout);
-    delete window[callbackName];
-    const s = document.getElementById('jsonpScript');
-    if (s) s.remove();
   }
-
-  window[callbackName] = function(rows) {
-    cleanup();
-    try {
-      parseSheet(rows);
-      hide('loadingState'); show('dashContent');
-      document.getElementById('lastFetched').textContent = 'Last synced: ' + new Date().toLocaleString();
-      setSyncStatus('ok', 'Live · ' + ALL_MONTHS_FULL[latestDataIdx]);
-      buildAll();
-    } catch(err) {
-      hide('loadingState'); show('errorState');
-      document.getElementById('errorMsg').textContent = 'Data parsed with error: ' + err.message;
-      setSyncStatus('err','Parse error');
-    }
-  };
-
-  const script = document.createElement('script');
-  script.id = 'jsonpScript';
-  script.src = url;
-  script.onerror = () => {
-    cleanup();
-    hide('loadingState'); show('errorState');
-    document.getElementById('errorMsg').textContent = 'Could not load the Apps Script. Make sure deployment access is set to "Anyone".';
-    setSyncStatus('err','Connection failed');
-  };
-  document.head.appendChild(script);
 }
 
 function show(id){ document.getElementById(id).style.display=''; }
