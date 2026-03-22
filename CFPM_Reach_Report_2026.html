@@ -720,12 +720,12 @@ function buildOverview(){
   const li=latestDataIdx;
   document.getElementById('ovTitle').textContent=`FY2026 — Audience Reach · YTD through ${ALL_MONTHS_FULL[li]}`;
   topStatRow('ovStatRow',[
-    {label:'ART (latest month)',  val:D.art[li],     delta:pct(D.art[li],D.art[li-1]),       color:'#036EBB',note:'MoM'},
-    {label:'YTD Total ART',       val:ytdSum(D.art), delta:null,                              color:'#036EBB',note:'YTD'},
-    {label:'Radio (latest)',       val:D.radio[li],   delta:pct(D.radio[li],D.radio[li-1]),   color:'#036EBB',note:'MoM'},
-    {label:'Digital (latest)',     val:D.digital[li], delta:pct(D.digital[li],D.digital[li-1]),color:'#E8A020',note:'MoM'},
-    {label:'Website (latest)',     val:D.web[li],     delta:pct(D.web[li],D.web[li-1]),       color:'#534AB7',note:'MoM'},
-    {label:'Social organic (latest)',val:D.social[li],delta:pct(D.social[li],D.social[li-1]),color:'#D85A30',note:'MoM'},
+    {label:'YTD Audience Reach',            val:ytdSum(D.art),  delta:null,                              color:'#036EBB',note:'YTD'},
+    {label:'Audience Reach Total (Latest Month)', val:D.art[li], delta:pct(D.art[li],D.art[li-1]),  color:'#036EBB',note:'MoM'},
+    {label:'Radio (latest)',               val:D.radio[li],   delta:pct(D.radio[li],D.radio[li-1]),   color:'#036EBB',note:'MoM'},
+    {label:'Digital (latest)',             val:D.digital[li], delta:pct(D.digital[li],D.digital[li-1]),color:'#E8A020',note:'MoM'},
+    {label:'Website (latest)',             val:D.web[li],     delta:pct(D.web[li],D.web[li-1]),       color:'#534AB7',note:'MoM'},
+    {label:'Social organic (latest)',      val:D.social[li],  delta:pct(D.social[li],D.social[li-1]),color:'#D85A30',note:'MoM'},
   ]);
   makeLineChart('ovArtChart',[lineDS(D.art,'#036EBB','ART',true)],false);
   const mixKeys  =['radio','digital','web','social','app','newsletter','apple'];
