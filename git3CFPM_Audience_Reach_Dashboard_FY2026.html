@@ -782,11 +782,9 @@ function buildDigital(){
   const subColors=['#036EBB','#534AB7','#3B6D11','#E8A020','#D85A30'];
   const subShort =['Live Streams','Story Audio','Newscast','NPR One','Podcasts'];
   topStatRow('digitalTopRow',[
-    {label:'YTD Total',    val:ytdSum(D.digital), delta:null,                                    color:'#E8A020',note:'YTD'},
-    {label:'Latest Month', val:D.digital[li],     delta:pct(D.digital[li],D.digital[li-1]),     color:'#E8A020',note:'MoM'},
-    {label:'Live Streams', val:D.streams[li],     delta:pct(D.streams[li],D.streams[li-1]),     color:'#036EBB',note:'MoM'},
-    {label:'Story Audio',  val:D.story[li],       delta:pct(D.story[li],D.story[li-1]),         color:'#534AB7',note:'MoM'},
-    {label:'Podcasts',     val:D.podcasts[li],    delta:pct(D.podcasts[li],D.podcasts[li-1]),   color:'#D85A30',note:'MoM'},
+    {label:'YTD Total',      val:ytdSum(D.digital),  delta:null,                                color:'#E8A020',note:'YTD'},
+    {label:'Monthly Avg',    val:ytdAvg(D.digital),  delta:null,                                color:'#E8A020',note:'avg'},
+    {label:'Latest Month',   val:D.digital[li],      delta:pct(D.digital[li],D.digital[li-1]),color:'#E8A020',note:'MoM'},
   ]);
   setupMoM('digitalMonthPicker','digitalMoMRow',
     subKeys.map((k,i)=>({label:subShort[i],key:k,color:subColors[i]}))
