@@ -124,7 +124,10 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
     </svg>
     <div>
       <div class="header-title">Central Florida Public Media</div>
-      <div class="header-sub">Audience Reach Dashboard — FY2026</div>
+      <div style="display:flex;align-items:baseline;gap:10px;">
+        <div style="color:#FFFFFF;font-size:22px;font-weight:600;letter-spacing:-0.02em;">Reach Report</div>
+        <div class="header-sub">FY2026</div>
+      </div>
     </div>
   </div>
   <div class="header-right">
@@ -236,7 +239,8 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Follower Growth — All Platforms</div><div class="legend" id="followerLegend"></div><div class="chart-wrap" style="height:200px"><canvas id="followerChart"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">TikTok Video Views</div><div class="chart-wrap" style="height:200px"><canvas id="tiktokChart"></canvas></div></div>
       </div>
-      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail — Reach &amp; Followers</div><table class="data-table" id="socialTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Reach — Organic</div><table class="data-table" id="socialReachTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Audience / Followers</div><table class="data-table" id="socialFollowerTable"></table></div>
     </div>
 
     <!-- APP -->
@@ -639,10 +643,18 @@ function buildMonthlyTable(id,cols,showTotal){
     html+='</tr>';
   });
   if(showTotal){
-    html+=`<tr style="font-weight:700;border-top:1.5px solid var(--lt)"><td>YTD Total/Avg</td>`;
+    // Total row
+    html+=`<tr style="font-weight:700;border-top:1.5px solid var(--lt)"><td>YTD Total</td>`;
     cols.forEach(c=>{
       const isRate=c.key==='clickRate';
-      const val=isRate?ytdAvg(D[c.key]):ytdSum(D[c.key]);
+      const val=isRate?null:ytdSum(D[c.key]);
+      html+=isRate?`<td class="na-cell">—</td><td></td>`:`<td>${fmtFull(val)}</td><td></td>`;
+    });
+    html+='</tr>';
+    // Average row
+    html+=`<tr style="font-weight:700;color:var(--mid);"><td>Monthly Avg</td>`;
+    cols.forEach(c=>{
+      const val=ytdAvg(D[c.key]);
       html+=`<td>${fmtFull(val)}</td><td></td>`;
     });
     html+='</tr>';
@@ -838,13 +850,21 @@ function buildSocial(){
   makeChart('tiktokChart',{type:'bar',data:{labels:activeLabels(),datasets:[{data:activeData(D.tiktok),backgroundColor:'#2C2C2Acc',borderRadius:5}]},
     options:{...baseOpts(),plugins:{legend:{display:false},tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6,callbacks:{label:ctx=>' '+fmtFull(ctx.parsed.y)+' views'}}}}
   });
-  buildMonthlyTable('socialTable',[
-    {label:'Facebook Organic',key:'facebook'},{label:'FB Followers',key:'fbFollowers'},
-    {label:'Instagram Organic',key:'instagram'},{label:'IG Followers',key:'igFollowers'},
-    {label:'YouTube Viewers',key:'youtube'},{label:'YT Followers',key:'ytFollowers'},
-    {label:'TikTok Views',key:'tiktok'},{label:'TK Followers',key:'tkFollowers'},
+  buildMonthlyTable('socialReachTable',[
+    {label:'Facebook Organic',key:'facebook'},
+    {label:'Instagram Organic',key:'instagram'},
+    {label:'YouTube Viewers',key:'youtube'},
+    {label:'TikTok Views',key:'tiktok'},
     {label:'Total Organic',key:'social'},
   ],true);
+  buildMonthlyTable('socialFollowerTable',[
+    {label:'Facebook',key:'fbFollowers'},
+    {label:'Instagram',key:'igFollowers'},
+    {label:'YouTube',key:'ytFollowers'},
+    {label:'TikTok',key:'tkFollowers'},
+    {label:'LinkedIn',key:'liFollowers'},
+    {label:'Total (aggregation)',key:'socialFollowers'},
+  ],false);
 }
 
 function buildApp(){
