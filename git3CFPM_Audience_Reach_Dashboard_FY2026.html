@@ -408,22 +408,45 @@ function parseSheet(rows) {
     if (!lookup[k]) lookup[k] = row; // first match wins
   });
 
-  // Detect which months (cols 1-12) have real data
-  // A column "has data" if ANY key row has a nonzero, non-empty value in it
+  // Helper: is a raw cell value real data (not zero, blank, or an error)?
+  function isRealValue(v) {
+    if (v === '' || v === null || v === undefined) return false;
+    const s = String(v).trim();
+    if (s === '' || s === '0' || s === '#DIV/0!' || s === '#N/A' || s === '#VALUE!' || s === '#REF!') return false;
+    if (s.includes('%')) return false; // skip percentage helper columns
+    const n = parseFloat(s.replace(/,/g,''));
+    return !isNaN(n) && n !== 0;
+  }
+
+  // Detect which of the 12 month columns (cols 1-12) have real data.
+  // Use only the core metric rows to decide — ignore helper/formula rows.
+  const coreLabels = Object.values(ROW_MAP);
   const hasData = Array(12).fill(false);
   rows.forEach(row => {
+    const label = String(row[0] || '').trim().replace(/^\s+/,'');
+    const isCore = coreLabels.some(l => l.trim() === label);
+    if (!isCore) return;
     for (let c = 1; c <= 12; c++) {
-      const v = row[c];
-      if (v !== '' && v !== null && v !== undefined && v !== 0 && v !== '0') {
-        // Skip percentage strings
-        if (typeof v === 'string' && v.includes('%')) return;
-        hasData[c-1] = true;
-      }
+      if (isRealValue(row[c])) hasData[c-1] = true;
     }
   });
+
+  // A month only counts if at least 3 core rows have real data in that column
+  // This prevents a stray formula value from marking a future month as populated
+  const coreCount = Array(12).fill(0);
+  rows.forEach(row => {
+    const label = String(row[0] || '').trim().replace(/^\s+/,'');
+    const isCore = coreLabels.some(l => l.trim() === label);
+    if (!isCore) return;
+    for (let c = 1; c <= 12; c++) {
+      if (isRealValue(row[c])) coreCount[c-1]++;
+    }
+  });
+
   dataMonths = [];
-  for (let i = 0; i < 12; i++) { if (hasData[i]) dataMonths.push(i); }
-  // Fallback: if nothing detected, use col 1
+  for (let i = 0; i < 12; i++) {
+    if (coreCount[i] >= 3) dataMonths.push(i);
+  }
   if (dataMonths.length === 0) dataMonths = [0];
   latestDataIdx = dataMonths[dataMonths.length - 1];
 
@@ -431,7 +454,6 @@ function parseSheet(rows) {
   Object.keys(ROW_MAP).forEach(k => {
     const label = ROW_MAP[k];
     let row = lookup[label];
-    // Fallback: trimmed starts-with match (handles leading spaces in sheet)
     if (!row) {
       const found = Object.keys(lookup).find(l => l.replace(/^\s+/,'') === label.trim());
       if (found) row = lookup[found];
@@ -439,21 +461,20 @@ function parseSheet(rows) {
     D[k] = Array(12).fill(null);
     if (!row) return;
     for (let c = 1; c <= 12; c++) {
-      if (!hasData[c-1]) continue; // don't parse future months
+      if (!dataMonths.includes(c-1)) continue;
       const raw = row[c];
-      if (raw === '' || raw === null || raw === undefined) continue;
-      if (typeof raw === 'string' && raw.includes('%')) {
-        // Store as decimal (e.g. "2.10%" → 0.021)
-        D[k][c-1] = parseFloat(raw) / 100;
+      if (!isRealValue(raw)) continue;
+      const s = String(raw).trim();
+      if (s.includes('%')) {
+        D[k][c-1] = parseFloat(s) / 100;
         continue;
       }
-      const n = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/,/g,''));
+      const n = typeof raw === 'number' ? raw : parseFloat(s.replace(/,/g,''));
       if (!isNaN(n) && n !== 0) D[k][c-1] = n;
     }
   });
 
-  // Special: click rate may already be decimal from sheet
-  // Normalise: if all values < 0.5 assume already decimal, else divide by 100
+  // Normalise click rate: if values look like whole percentages (e.g. 2.1) convert to decimal
   const cr = D.clickRate.filter(v => v !== null);
   if (cr.length > 0 && cr.every(v => v > 0.5)) {
     D.clickRate = D.clickRate.map(v => v === null ? null : v / 100);
