@@ -124,7 +124,10 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
     </svg>
     <div>
       <div class="header-title">Central Florida Public Media</div>
-      <div class="header-sub">Audience Reach Dashboard — FY2026</div>
+      <div style="display:flex;align-items:baseline;gap:10px;">
+        <div style="color:#FFFFFF;font-size:22px;font-weight:600;letter-spacing:-0.02em;">Reach Report</div>
+        <div class="header-sub">FY2026</div>
+      </div>
     </div>
   </div>
   <div class="header-right">
@@ -219,6 +222,11 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Quarter over Quarter</div><div class="chart-wrap" style="height:240px"><canvas id="webQoQChart"></canvas></div></div>
       </div>
       <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="webTable"></table></div>
+      <div class="chart-card mb">
+        <div class="chart-title" style="margin-bottom:4px">Top 25 Pages</div>
+        <div style="font-size:11px;color:var(--mid);margin-bottom:14px;">Source: Google Analytics · refreshes automatically with sheet</div>
+        <div id="topPagesContainer" style="overflow-x:auto;"></div>
+      </div>
     </div>
 
     <!-- SOCIAL -->
@@ -236,7 +244,8 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Follower Growth — All Platforms</div><div class="legend" id="followerLegend"></div><div class="chart-wrap" style="height:200px"><canvas id="followerChart"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">TikTok Video Views</div><div class="chart-wrap" style="height:200px"><canvas id="tiktokChart"></canvas></div></div>
       </div>
-      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail — Reach &amp; Followers</div><table class="data-table" id="socialTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Reach — Organic</div><table class="data-table" id="socialReachTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Audience / Followers</div><table class="data-table" id="socialFollowerTable"></table></div>
     </div>
 
     <!-- APP -->
@@ -291,6 +300,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
 
 <script>
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbEtgxUtrjz091EHIvVTMhyZmX90KuuvKsKrqq508chH3Zkoy5lFFo-cu8cfDZD7c0Pfy-dk1dhDe9/pub?gid=0&single=true&output=csv';
+const GA_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTfghKHI_aHDbac6cxpQqwKZrFJpJDcaPtm9xhb6sfHceDyaaLCmVi-PYWdjvXAN544MU9cBAkk8qsg/pub?output=csv';
 
 const ALL_MONTHS      = ['Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'];
 const ALL_MONTHS_FULL = ['Oct 2025','Nov 2025','Dec 2025','Jan 2026','Feb 2026','Mar 2026','Apr 2026','May 2026','Jun 2026','Jul 2026','Aug 2026','Sep 2026'];
@@ -365,12 +375,17 @@ async function loadData() {
   show('loadingState'); hide('errorState'); hide('dashContent');
 
   try {
-    const res = await fetch(SHEET_CSV_URL);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const text = await res.text();
-    if (!text || text.length < 10) throw new Error('Empty response — check the sheet is published');
-    const rows = parseCSV(text);
+    const [reachRes, gaRes] = await Promise.all([
+      fetch(SHEET_CSV_URL),
+      fetch(GA_CSV_URL)
+    ]);
+    if (!reachRes.ok) throw new Error('Reach sheet HTTP ' + reachRes.status);
+    if (!gaRes.ok) throw new Error('GA sheet HTTP ' + gaRes.status);
+    const [reachText, gaText] = await Promise.all([reachRes.text(), gaRes.text()]);
+    if (!reachText || reachText.length < 10) throw new Error('Empty reach sheet response');
+    const rows = parseCSV(reachText);
     parseSheet(rows);
+    parseGASheet(gaText);
     hide('loadingState'); show('dashContent');
     document.getElementById('lastFetched').textContent = 'Last synced: ' + new Date().toLocaleString();
     setSyncStatus('ok', 'Live · ' + ALL_MONTHS_FULL[latestDataIdx]);
@@ -401,22 +416,45 @@ function parseSheet(rows) {
     if (!lookup[k]) lookup[k] = row; // first match wins
   });
 
-  // Detect which months (cols 1-12) have real data
-  // A column "has data" if ANY key row has a nonzero, non-empty value in it
+  // Helper: is a raw cell value real data (not zero, blank, or an error)?
+  function isRealValue(v) {
+    if (v === '' || v === null || v === undefined) return false;
+    const s = String(v).trim();
+    if (s === '' || s === '0' || s === '#DIV/0!' || s === '#N/A' || s === '#VALUE!' || s === '#REF!') return false;
+    if (s.includes('%') && parseFloat(s) === 0) return false; // skip 0% values only
+    const n = parseFloat(s.replace(/,/g,''));
+    return !isNaN(n) && n !== 0;
+  }
+
+  // Detect which of the 12 month columns (cols 1-12) have real data.
+  // Use only the core metric rows to decide — ignore helper/formula rows.
+  const coreLabels = Object.values(ROW_MAP);
   const hasData = Array(12).fill(false);
   rows.forEach(row => {
+    const label = String(row[0] || '').trim().replace(/^\s+/,'');
+    const isCore = coreLabels.some(l => l.trim() === label);
+    if (!isCore) return;
     for (let c = 1; c <= 12; c++) {
-      const v = row[c];
-      if (v !== '' && v !== null && v !== undefined && v !== 0 && v !== '0') {
-        // Skip percentage strings
-        if (typeof v === 'string' && v.includes('%')) return;
-        hasData[c-1] = true;
-      }
+      if (isRealValue(row[c])) hasData[c-1] = true;
     }
   });
+
+  // A month only counts if at least 3 core rows have real data in that column
+  // This prevents a stray formula value from marking a future month as populated
+  const coreCount = Array(12).fill(0);
+  rows.forEach(row => {
+    const label = String(row[0] || '').trim().replace(/^\s+/,'');
+    const isCore = coreLabels.some(l => l.trim() === label);
+    if (!isCore) return;
+    for (let c = 1; c <= 12; c++) {
+      if (isRealValue(row[c])) coreCount[c-1]++;
+    }
+  });
+
   dataMonths = [];
-  for (let i = 0; i < 12; i++) { if (hasData[i]) dataMonths.push(i); }
-  // Fallback: if nothing detected, use col 1
+  for (let i = 0; i < 12; i++) {
+    if (coreCount[i] >= 3) dataMonths.push(i);
+  }
   if (dataMonths.length === 0) dataMonths = [0];
   latestDataIdx = dataMonths[dataMonths.length - 1];
 
@@ -424,7 +462,6 @@ function parseSheet(rows) {
   Object.keys(ROW_MAP).forEach(k => {
     const label = ROW_MAP[k];
     let row = lookup[label];
-    // Fallback: trimmed starts-with match (handles leading spaces in sheet)
     if (!row) {
       const found = Object.keys(lookup).find(l => l.replace(/^\s+/,'') === label.trim());
       if (found) row = lookup[found];
@@ -432,25 +469,120 @@ function parseSheet(rows) {
     D[k] = Array(12).fill(null);
     if (!row) return;
     for (let c = 1; c <= 12; c++) {
-      if (!hasData[c-1]) continue; // don't parse future months
+      if (!dataMonths.includes(c-1)) continue;
       const raw = row[c];
-      if (raw === '' || raw === null || raw === undefined) continue;
-      if (typeof raw === 'string' && raw.includes('%')) {
-        // Store as decimal (e.g. "2.10%" → 0.021)
-        D[k][c-1] = parseFloat(raw) / 100;
+      if (!isRealValue(raw)) continue;
+      const s = String(raw).trim();
+      if (s.includes('%')) {
+        const pctVal = parseFloat(s);
+        if (!isNaN(pctVal) && pctVal !== 0) D[k][c-1] = pctVal / 100;
         continue;
       }
-      const n = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/,/g,''));
+      const n = typeof raw === 'number' ? raw : parseFloat(s.replace(/,/g,''));
       if (!isNaN(n) && n !== 0) D[k][c-1] = n;
     }
   });
 
-  // Special: click rate may already be decimal from sheet
-  // Normalise: if all values < 0.5 assume already decimal, else divide by 100
+  // Normalise click rate: if values look like whole percentages (e.g. 2.1) convert to decimal
   const cr = D.clickRate.filter(v => v !== null);
   if (cr.length > 0 && cr.every(v => v > 0.5)) {
     D.clickRate = D.clickRate.map(v => v === null ? null : v / 100);
   }
+}
+
+// ── GA top pages data ─────────────────────────────────────────────────────
+let GA_PAGES = [];
+
+function formatDuration(seconds) {
+  if (seconds === null || isNaN(seconds)) return '—';
+  const s = Math.round(seconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function parseGASheet(text) {
+  GA_PAGES = [];
+  console.log('GA CSV length:', text.length);
+  console.log('GA first 500 chars:', text.substring(0, 500));
+  const lines = text.split(/\r?\n/);
+  console.log('GA total lines:', lines.length);
+  lines.slice(0, 20).forEach((l, i) => console.log('GA line', i, ':', l.substring(0, 120)));
+  // Find header row — look for 'pageTitle'
+  let headerIdx = -1;
+  let headers = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].toLowerCase().includes('pagetitle')) {
+      headers = lines[i].split(',').map(h => h.trim().toLowerCase());
+      headerIdx = i;
+      console.log('GA header found at line', i, ':', headers);
+      break;
+    }
+  }
+  if (headerIdx === -1) { console.log('GA header NOT FOUND'); return; }
+
+  const col = (name) => headers.indexOf(name);
+  const titleCol   = col('pagetitle');
+  const pathCol    = col('pagepath');
+  const viewsCol   = col('screenpageviews');
+  const sessCol    = col('sessions');
+  const usersCol   = col('activeusers');
+  const durCol     = col('averagesessionduration');
+
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const row = parseCSV(lines[i])[0];
+    if (!row || !row[titleCol]) continue;
+    const title = row[titleCol].trim();
+    if (!title || title === '') continue;
+    GA_PAGES.push({
+      title:    title,
+      path:     row[pathCol]  ? row[pathCol].trim() : '/',
+      views:    parseInt(row[viewsCol]) || 0,
+      sessions: parseInt(row[sessCol])  || 0,
+      users:    parseInt(row[usersCol]) || 0,
+      duration: parseFloat(row[durCol]) || 0
+    });
+  }
+}
+
+function buildTopPagesTable() {
+  const container = document.getElementById('topPagesContainer');
+  if (!container) return;
+  if (GA_PAGES.length === 0) {
+    container.innerHTML = '<p style="color:var(--mid);font-size:13px;padding:1rem 0;">No page data available.</p>';
+    return;
+  }
+  const pages = GA_PAGES.slice(0, 25);
+  let html = `<table class="data-table" style="font-size:12px;">
+    <thead><tr>
+      <th style="text-align:left;min-width:280px;">Story / Page Title</th>
+      <th>Page Views</th>
+      <th>Sessions</th>
+      <th>Users</th>
+      <th>Avg Duration</th>
+    </tr></thead><tbody>`;
+  pages.forEach((p, i) => {
+    const url = p.path.startsWith('http') ? p.path : 'https://www.wmfe.org' + (p.path.startsWith('/') ? '' : '/') + p.path;
+    html += `<tr>
+      <td style="text-align:left;">
+        <a href="${url}" target="_blank" rel="noopener"
+           style="color:var(--teal);text-decoration:none;font-weight:500;line-height:1.4;display:block;"
+           onmouseover="this.style.textDecoration='underline'"
+           onmouseout="this.style.textDecoration='none'">
+          ${p.title}
+        </a>
+        <span style="font-size:10px;color:var(--mid);font-family:'IBM Plex Mono',monospace;">${p.path}</span>
+      </td>
+      <td>${p.views.toLocaleString()}</td>
+      <td>${p.sessions.toLocaleString()}</td>
+      <td>${p.users.toLocaleString()}</td>
+      <td style="font-family:'IBM Plex Mono',monospace;">${formatDuration(p.duration)}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -611,10 +743,18 @@ function buildMonthlyTable(id,cols,showTotal){
     html+='</tr>';
   });
   if(showTotal){
-    html+=`<tr style="font-weight:700;border-top:1.5px solid var(--lt)"><td>YTD Total/Avg</td>`;
+    // Total row
+    html+=`<tr style="font-weight:700;border-top:1.5px solid var(--lt)"><td>YTD Total</td>`;
     cols.forEach(c=>{
       const isRate=c.key==='clickRate';
-      const val=isRate?ytdAvg(D[c.key]):ytdSum(D[c.key]);
+      const val=isRate?null:ytdSum(D[c.key]);
+      html+=isRate?`<td class="na-cell">—</td><td></td>`:`<td>${fmtFull(val)}</td><td></td>`;
+    });
+    html+='</tr>';
+    // Average row
+    html+=`<tr style="font-weight:700;color:var(--mid);"><td>Monthly Avg</td>`;
+    cols.forEach(c=>{
+      const val=ytdAvg(D[c.key]);
       html+=`<td>${fmtFull(val)}</td><td></td>`;
     });
     html+='</tr>';
@@ -679,12 +819,12 @@ function buildOverview(){
   const li=latestDataIdx;
   document.getElementById('ovTitle').textContent=`FY2026 — Audience Reach · YTD through ${ALL_MONTHS_FULL[li]}`;
   topStatRow('ovStatRow',[
-    {label:'ART (latest month)',  val:D.art[li],     delta:pct(D.art[li],D.art[li-1]),       color:'#036EBB',note:'MoM'},
-    {label:'YTD Total ART',       val:ytdSum(D.art), delta:null,                              color:'#036EBB',note:'YTD'},
-    {label:'Radio (latest)',       val:D.radio[li],   delta:pct(D.radio[li],D.radio[li-1]),   color:'#036EBB',note:'MoM'},
-    {label:'Digital (latest)',     val:D.digital[li], delta:pct(D.digital[li],D.digital[li-1]),color:'#E8A020',note:'MoM'},
-    {label:'Website (latest)',     val:D.web[li],     delta:pct(D.web[li],D.web[li-1]),       color:'#534AB7',note:'MoM'},
-    {label:'Social organic (latest)',val:D.social[li],delta:pct(D.social[li],D.social[li-1]),color:'#D85A30',note:'MoM'},
+    {label:'YTD Audience Reach',            val:ytdSum(D.art),  delta:null,                              color:'#036EBB',note:'YTD'},
+    {label:'Audience Reach Total (Latest Month)', val:D.art[li], delta:pct(D.art[li],D.art[li-1]),  color:'#036EBB',note:'MoM'},
+    {label:'Radio (latest)',               val:D.radio[li],   delta:pct(D.radio[li],D.radio[li-1]),   color:'#036EBB',note:'MoM'},
+    {label:'Digital (latest)',             val:D.digital[li], delta:pct(D.digital[li],D.digital[li-1]),color:'#E8A020',note:'MoM'},
+    {label:'Website (latest)',             val:D.web[li],     delta:pct(D.web[li],D.web[li-1]),       color:'#534AB7',note:'MoM'},
+    {label:'Social organic (latest)',      val:D.social[li],  delta:pct(D.social[li],D.social[li-1]),color:'#D85A30',note:'MoM'},
   ]);
   makeLineChart('ovArtChart',[lineDS(D.art,'#036EBB','ART',true)],false);
   const mixKeys  =['radio','digital','web','social','app','newsletter','apple'];
@@ -715,11 +855,9 @@ function buildOverview(){
 function buildRadio(){
   const li=latestDataIdx;
   topStatRow('radioTopRow',[
-    {label:'YTD Total',  val:ytdSum(D.radio),  delta:null,                              color:'#036EBB',note:'YTD'},
-    {label:'Latest Month',val:D.radio[li],     delta:pct(D.radio[li],D.radio[li-1]),   color:'#036EBB',note:'MoM'},
-    {label:'90.7 WMFE',   val:D.wmfe[li],      delta:pct(D.wmfe[li],D.wmfe[li-1]),     color:'#036EBB',note:'MoM'},
-    {label:'89.5 WMFV',   val:D.wmfv[li],      delta:pct(D.wmfv[li],D.wmfv[li-1]),     color:'#E8A020',note:'MoM'},
-    {label:'HD2',          val:D.hd2[li],       delta:pct(D.hd2[li],D.hd2[li-1]),       color:'#35C934',note:'MoM'},
+    {label:'YTD Total',    val:ytdSum(D.radio), delta:null,                               color:'#036EBB',note:'YTD'},
+    {label:'Monthly Avg',  val:ytdAvg(D.radio), delta:null,                               color:'#036EBB',note:'avg'},
+    {label:'Latest Month', val:D.radio[li],     delta:pct(D.radio[li],D.radio[li-1]),    color:'#036EBB',note:'MoM'},
   ]);
   setupMoM('radioMonthPicker','radioMoMRow',[
     {label:'Total Radio',key:'radio',color:'#036EBB'},
@@ -741,11 +879,9 @@ function buildDigital(){
   const subColors=['#036EBB','#534AB7','#3B6D11','#E8A020','#D85A30'];
   const subShort =['Live Streams','Story Audio','Newscast','NPR One','Podcasts'];
   topStatRow('digitalTopRow',[
-    {label:'YTD Total',    val:ytdSum(D.digital), delta:null,                                    color:'#E8A020',note:'YTD'},
-    {label:'Latest Month', val:D.digital[li],     delta:pct(D.digital[li],D.digital[li-1]),     color:'#E8A020',note:'MoM'},
-    {label:'Live Streams', val:D.streams[li],     delta:pct(D.streams[li],D.streams[li-1]),     color:'#036EBB',note:'MoM'},
-    {label:'Story Audio',  val:D.story[li],       delta:pct(D.story[li],D.story[li-1]),         color:'#534AB7',note:'MoM'},
-    {label:'Podcasts',     val:D.podcasts[li],    delta:pct(D.podcasts[li],D.podcasts[li-1]),   color:'#D85A30',note:'MoM'},
+    {label:'YTD Total',      val:ytdSum(D.digital),  delta:null,                                color:'#E8A020',note:'YTD'},
+    {label:'Monthly Avg',    val:ytdAvg(D.digital),  delta:null,                                color:'#E8A020',note:'avg'},
+    {label:'Latest Month',   val:D.digital[li],      delta:pct(D.digital[li],D.digital[li-1]),color:'#E8A020',note:'MoM'},
   ]);
   setupMoM('digitalMonthPicker','digitalMoMRow',
     subKeys.map((k,i)=>({label:subShort[i],key:k,color:subColors[i]}))
@@ -765,10 +901,9 @@ function buildDigital(){
 function buildWebsite(){
   const li=latestDataIdx;
   topStatRow('webTopRow',[
-    {label:'YTD Total Users', val:ytdSum(D.web),      delta:null,                          color:'#534AB7',note:'YTD'},
-    {label:'Latest Month',    val:D.web[li],           delta:pct(D.web[li],D.web[li-1]),   color:'#534AB7',note:'MoM'},
-    {label:'Organic Users',   val:D.organic[li],       delta:pct(D.organic[li],D.organic[li-1]),color:'#534AB7',note:'MoM'},
-    {label:'Referral Users',  val:D.referral[li],      delta:pct(D.referral[li],D.referral[li-1]),color:'#888780',note:'MoM'},
+    {label:'YTD Total',    val:ytdSum(D.web),  delta:null,                            color:'#534AB7',note:'YTD'},
+    {label:'Monthly Avg',  val:ytdAvg(D.web),  delta:null,                            color:'#534AB7',note:'avg'},
+    {label:'Latest Month', val:D.web[li],      delta:pct(D.web[li],D.web[li-1]),     color:'#534AB7',note:'MoM'},
   ]);
   setupMoM('webMonthPicker','webMoMRow',[
     {label:'Total Users',key:'web',color:'#534AB7'},
@@ -781,17 +916,15 @@ function buildWebsite(){
   });
   makeQoQChart('webQoQChart',D.web,'#534AB7');
   buildMonthlyTable('webTable',[{label:'Organic',key:'organic'},{label:'Referral',key:'referral'},{label:'Total Users',key:'web'}],true);
+  buildTopPagesTable();
 }
 
 function buildSocial(){
   const li=latestDataIdx;
   topStatRow('socialTopRow',[
-    {label:'FB Organic (latest)',  val:D.facebook[li],  delta:pct(D.facebook[li],D.facebook[li-1]),   color:'#1877F2',note:'MoM'},
-    {label:'IG Organic (latest)',  val:D.instagram[li], delta:pct(D.instagram[li],D.instagram[li-1]), color:'#C13584',note:'MoM'},
-    {label:'YouTube Viewers',      val:D.youtube[li],   delta:pct(D.youtube[li],D.youtube[li-1]),     color:'#FF0000',note:'MoM'},
-    {label:'TikTok Views',         val:D.tiktok[li],    delta:pct(D.tiktok[li],D.tiktok[li-1]),       color:'#2C2C2A',note:'MoM'},
-    {label:'Total Organic Reach',  val:D.social[li],    delta:pct(D.social[li],D.social[li-1]),       color:'#D85A30',note:'MoM'},
-    {label:'Social Followers',     val:D.socialFollowers[li],delta:pct(D.socialFollowers[li],D.socialFollowers[li-1]),color:'#D85A30',note:'MoM'},
+    {label:'YTD Total Reach',  val:ytdSum(D.social),  delta:null,                              color:'#D85A30',note:'YTD'},
+    {label:'Monthly Avg',      val:ytdAvg(D.social),  delta:null,                              color:'#D85A30',note:'avg'},
+    {label:'Latest Month',     val:D.social[li],      delta:pct(D.social[li],D.social[li-1]),color:'#D85A30',note:'MoM'},
   ]);
   setupMoM('socialMonthPicker','socialMoMRow',[
     {label:'Total Organic',key:'social',color:'#D85A30'},
@@ -810,13 +943,21 @@ function buildSocial(){
   makeChart('tiktokChart',{type:'bar',data:{labels:activeLabels(),datasets:[{data:activeData(D.tiktok),backgroundColor:'#2C2C2Acc',borderRadius:5}]},
     options:{...baseOpts(),plugins:{legend:{display:false},tooltip:{backgroundColor:'#001421',titleColor:'#fff',bodyColor:'rgba(255,255,255,0.7)',padding:10,cornerRadius:6,callbacks:{label:ctx=>' '+fmtFull(ctx.parsed.y)+' views'}}}}
   });
-  buildMonthlyTable('socialTable',[
-    {label:'Facebook Organic',key:'facebook'},{label:'FB Followers',key:'fbFollowers'},
-    {label:'Instagram Organic',key:'instagram'},{label:'IG Followers',key:'igFollowers'},
-    {label:'YouTube Viewers',key:'youtube'},{label:'YT Followers',key:'ytFollowers'},
-    {label:'TikTok Views',key:'tiktok'},{label:'TK Followers',key:'tkFollowers'},
+  buildMonthlyTable('socialReachTable',[
+    {label:'Facebook Organic',key:'facebook'},
+    {label:'Instagram Organic',key:'instagram'},
+    {label:'YouTube Viewers',key:'youtube'},
+    {label:'TikTok Views',key:'tiktok'},
     {label:'Total Organic',key:'social'},
   ],true);
+  buildMonthlyTable('socialFollowerTable',[
+    {label:'Facebook',key:'fbFollowers'},
+    {label:'Instagram',key:'igFollowers'},
+    {label:'YouTube',key:'ytFollowers'},
+    {label:'TikTok',key:'tkFollowers'},
+    {label:'LinkedIn',key:'liFollowers'},
+    {label:'Total (aggregation)',key:'socialFollowers'},
+  ],false);
 }
 
 function buildApp(){
@@ -838,10 +979,9 @@ function buildApp(){
 function buildNewsletter(){
   const li=latestDataIdx;
   topStatRow('newsletterTopRow',[
-    {label:'YTD Total Opens', val:ytdSum(D.newsletter), delta:null,                                        color:'#3B6D11',note:'YTD'},
-    {label:'Latest Month',    val:D.newsletter[li],     delta:pct(D.newsletter[li],D.newsletter[li-1]),   color:'#3B6D11',note:'MoM'},
-    {label:'Avg Click Rate',  val:ytdAvg(D.clickRate),  delta:null,                                        color:'#3B6D11',note:'avg'},
-    {label:'Latest Click Rate',val:D.clickRate[li],     delta:pct(D.clickRate[li],D.clickRate[li-1]),     color:'#3B6D11',note:'MoM'},
+    {label:'YTD Total Opens',  val:ytdSum(D.newsletter), delta:null,                                      color:'#3B6D11',note:'YTD'},
+    {label:'Monthly Avg Opens',val:ytdAvg(D.newsletter), delta:null,                                      color:'#3B6D11',note:'avg'},
+    {label:'Latest Month',     val:D.newsletter[li],    delta:pct(D.newsletter[li],D.newsletter[li-1]),  color:'#3B6D11',note:'MoM'},
   ]);
   setupMoM('newsletterMonthPicker','newsletterMoMRow',[
     {label:'Opens',key:'newsletter',color:'#3B6D11'},
