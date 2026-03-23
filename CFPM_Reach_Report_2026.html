@@ -103,6 +103,79 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
 .platform-view.active .stat-card:nth-child(5){animation-delay:.20s}
 .platform-view.active .stat-card:nth-child(6){animation-delay:.24s}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Mobile responsive ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Header */
+  .header { padding: 0 1rem; height: auto; min-height: 56px; flex-wrap: wrap; gap: 6px; padding-top: 10px; padding-bottom: 10px; }
+  .header-left { gap: 8px; }
+  .header-title { font-size: 13px; }
+  .header-sub { font-size: 11px; }
+  .header-right { gap: 6px; flex-wrap: wrap; }
+  .header-badge { font-size: 10px; padding: 3px 8px; }
+  .sync-status { font-size: 10px; padding: 3px 8px; }
+
+  /* Nav — horizontal scroll, smaller tabs */
+  .platform-nav { padding: 0 0.75rem; }
+  .pnav-btn { padding: 10px 12px; font-size: 12px; gap: 5px; }
+  .pnav-dot { width: 6px; height: 6px; }
+
+  /* Main padding */
+  .main { padding: 1rem 1rem 3rem; }
+
+  /* YTD banner — stack vertically */
+  .ytd-banner { flex-direction: column; align-items: flex-start; gap: 12px; padding: 12px 14px; }
+  .month-pip { width: 20px; }
+  .month-pip-label { font-size: 8px; }
+
+  /* Section titles */
+  .section-title { font-size: 17px; margin-bottom: 1rem; }
+
+  /* Stat cards — 2 columns on mobile */
+  .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .stat-num { font-size: 20px; }
+  .stat-num.sm { font-size: 16px; }
+  .stat-label { font-size: 10px; }
+
+  /* Chart grids — all single column */
+  .chart-grid,
+  .chart-grid.wide,
+  .chart-grid.three { grid-template-columns: 1fr; gap: 10px; }
+
+  /* Chart cards */
+  .chart-card { padding: 1rem; }
+  .chart-title { font-size: 10px; margin-bottom: 0.75rem; }
+
+  /* Insight cards */
+  .insight-grid { grid-template-columns: 1fr; gap: 10px; }
+  .insight-title { font-size: 12px; }
+  .insight-body { font-size: 11px; }
+
+  /* Month picker bar */
+  .month-bar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px; }
+  .month-bar select { width: 100%; }
+
+  /* Data tables — horizontal scroll wrapper */
+  .data-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { font-size: 11px; min-width: 500px; }
+  .data-table th, .data-table td { padding: 6px 8px; }
+
+  /* Top pages table */
+  #topPagesContainer { font-size: 11px; }
+  #topPagesContainer table { min-width: 560px; }
+  #topPagesContainer td, #topPagesContainer th { padding: 6px 8px; }
+
+  /* Legend items */
+  .legend { gap: 8px; }
+  .legend-item { font-size: 10px; }
+}
+
+@media (max-width: 480px) {
+  /* Extra small — single column stat cards */
+  .stat-row { grid-template-columns: 1fr; }
+  .stat-num { font-size: 24px; }
+}
 </style>
 </head>
 <body>
@@ -178,7 +251,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Quarter over Quarter — ART</div><div class="chart-wrap" style="height:220px"><canvas id="ovQoQChart"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">All Platforms — Monthly Trend</div><div class="legend" id="ovTrendLegend"></div><div class="chart-wrap" style="height:220px"><canvas id="ovTrendChart"></canvas></div></div>
       </div>
-      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Full Platform QoQ Summary</div><table class="data-table" id="ovQTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Full Platform QoQ Summary</div><div class="data-table-wrap"><table class="data-table" id="ovQTable"></table></div></div>
     </div>
 
     <!-- RADIO -->
@@ -192,7 +265,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Monthly Radio — Sub-channels</div><div class="legend"><div class="legend-item"><span class="legend-dot" style="background:#036EBB"></span>90.7 WMFE</div><div class="legend-item"><span class="legend-dot" style="background:#E8A020"></span>89.5 WMFV</div><div class="legend-item"><span class="legend-dot" style="background:#35C934"></span>HD2</div></div><div class="chart-wrap" style="height:240px"><canvas id="radioBreakdownChart"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">Quarter over Quarter</div><div class="chart-wrap" style="height:240px"><canvas id="radioQoQChart"></canvas></div></div>
       </div>
-      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="radioTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><div class="data-table-wrap"><table class="data-table" id="radioTable"></table></div></div>
     </div>
 
     <!-- DIGITAL -->
@@ -207,7 +280,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Live Streams vs Podcasts</div><div class="legend"><div class="legend-item"><span class="legend-dot" style="background:#036EBB"></span>Live Streams</div><div class="legend-item"><span class="legend-dot" style="background:#D85A30"></span>Podcasts</div></div><div class="chart-wrap" style="height:200px"><canvas id="digitalStreamsPodChart"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">QoQ — Sub-Platforms</div><div class="legend" id="digitalQoQLegend"></div><div class="chart-wrap" style="height:200px"><canvas id="digitalQoQChart"></canvas></div></div>
       </div>
-      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="digitalTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><div class="data-table-wrap"><table class="data-table" id="digitalTable"></table></div></div>
     </div>
 
     <!-- WEBSITE -->
@@ -221,7 +294,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Monthly Users — Organic vs Referral</div><div class="legend"><div class="legend-item"><span class="legend-dot" style="background:#534AB7"></span>Organic</div><div class="legend-item"><span class="legend-dot" style="background:#888780"></span>Referral</div></div><div class="chart-wrap" style="height:240px"><canvas id="webStackChart"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">Quarter over Quarter</div><div class="chart-wrap" style="height:240px"><canvas id="webQoQChart"></canvas></div></div>
       </div>
-      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="webTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><div class="data-table-wrap"><table class="data-table" id="webTable"></table></div></div>
       <div id="webInsightsContainer"></div>
       <div class="chart-card mb">
         <div class="chart-title" style="margin-bottom:4px">Top 25 Pages — Last 30 Days</div>
@@ -245,8 +318,8 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Follower Growth — All Platforms</div><div class="legend" id="followerLegend"></div><div class="chart-wrap" style="height:200px"><canvas id="followerChart"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">TikTok Video Views</div><div class="chart-wrap" style="height:200px"><canvas id="tiktokChart"></canvas></div></div>
       </div>
-      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Reach — Organic</div><table class="data-table" id="socialReachTable"></table></div>
-      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Audience / Followers</div><table class="data-table" id="socialFollowerTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Reach — Organic</div><div class="data-table-wrap"><table class="data-table" id="socialReachTable"></table></div></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Audience / Followers</div><div class="data-table-wrap"><table class="data-table" id="socialFollowerTable"></table></div></div>
     </div>
 
     <!-- APP -->
@@ -260,7 +333,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Monthly Active Users</div><div class="chart-wrap" style="height:240px"><canvas id="appChart"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">Quarter over Quarter</div><div class="chart-wrap" style="height:240px"><canvas id="appQoQChart"></canvas></div></div>
       </div>
-      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="appTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><div class="data-table-wrap"><table class="data-table" id="appTable"></table></div></div>
     </div>
 
     <!-- NEWSLETTER -->
@@ -274,7 +347,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Monthly Avg Opens</div><div class="chart-wrap" style="height:240px"><canvas id="newsletterChart"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">Click Rate (Bot Filtered)</div><div class="chart-wrap" style="height:240px"><canvas id="clickRateChart"></canvas></div></div>
       </div>
-      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="newsletterTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><div class="data-table-wrap"><table class="data-table" id="newsletterTable"></table></div></div>
     </div>
 
     <!-- APPLE NEWS -->
@@ -288,7 +361,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
         <div class="chart-card"><div class="chart-title">Monthly Reach</div><div class="chart-wrap" style="height:240px"><canvas id="appleChart"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">Quarter over Quarter</div><div class="chart-wrap" style="height:240px"><canvas id="appleQoQChart"></canvas></div></div>
       </div>
-      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><table class="data-table" id="appleTable"></table></div>
+      <div class="chart-card mb"><div class="chart-title" style="margin-bottom:14px">Monthly Detail</div><div class="data-table-wrap"><table class="data-table" id="appleTable"></table></div></div>
     </div>
 
   </div><!-- /dashContent -->
