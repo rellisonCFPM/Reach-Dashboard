@@ -243,6 +243,7 @@ body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--dar
       <div class="section-eyebrow">Year to Date Summary</div>
       <div class="section-title"><div class="platform-color-bar" style="background:var(--teal)"></div><span id="ovTitle">FY2026 — Audience Reach</span></div>
       <div class="stat-row" id="ovStatRow"></div>
+      <div class="stat-row" id="ovPlatformRow"></div>
       <div class="chart-grid wide">
         <div class="chart-card"><div class="chart-title">Audience Reach Total (ART) — Monthly YTD</div><div class="chart-wrap" style="height:240px"><canvas id="ovArtChart"></canvas></div></div>
         <div class="chart-card"><div class="chart-title">Platform Mix — YTD Totals</div><div class="legend" id="ovMixLegend"></div><div class="chart-wrap" style="height:200px"><canvas id="ovMixChart"></canvas></div></div>
@@ -978,14 +979,57 @@ function buildAll(){
 function buildOverview(){
   const li=latestDataIdx;
   document.getElementById('ovTitle').textContent=`FY2026 — Audience Reach · YTD through ${ALL_MONTHS_FULL[li]}`;
-  topStatRow('ovStatRow',[
-    {label:'YTD Audience Reach',            val:ytdSum(D.art),  delta:null,                              color:'#036EBB',note:'YTD'},
-    {label:'Audience Reach Total (Latest Month)', val:D.art[li], delta:pct(D.art[li],D.art[li-1]),  color:'#036EBB',note:'MoM'},
-    {label:'Radio (latest)',               val:D.radio[li],   delta:pct(D.radio[li],D.radio[li-1]),   color:'#036EBB',note:'MoM'},
-    {label:'Digital (latest)',             val:D.digital[li], delta:pct(D.digital[li],D.digital[li-1]),color:'#E8A020',note:'MoM'},
-    {label:'Website (latest)',             val:D.web[li],     delta:pct(D.web[li],D.web[li-1]),       color:'#534AB7',note:'MoM'},
-    {label:'Social organic (latest)',      val:D.social[li],  delta:pct(D.social[li],D.social[li-1]),color:'#D85A30',note:'MoM'},
-  ]);
+    // ── Top row: 4 summary boxes ──
+  const ownedYTD = ytdSum(D.radio) + ytdSum(D.digital) + ytdSum(D.web) + ytdSum(D.app) + ytdSum(D.newsletter);
+  const ovRow = document.getElementById('ovStatRow');
+  if (ovRow) ovRow.innerHTML = `
+    <div class="stat-card" style="--accent-color:#036EBB">
+      <div class="stat-label">YTD Audience Reach</div>
+      <div class="stat-num sm">${fmt(ytdSum(D.art))}</div>
+      <span class="stat-change neu">YTD · all platforms</span>
+    </div>
+    <div class="stat-card" style="--accent-color:#036EBB">
+      <div class="stat-label">Monthly Average Reach</div>
+      <div class="stat-num sm">${fmt(ytdAvg(D.art))}</div>
+      <span class="stat-change neu">avg per month</span>
+    </div>
+    <div class="stat-card" style="--accent-color:#036EBB">
+      <div class="stat-label">YTD Owned Platforms Reach</div>
+      <div class="stat-num sm">${fmt(ownedYTD)}</div>
+      <div style="font-size:10px;color:var(--mid);margin-top:5px;line-height:1.5;">
+        Radio · Digital Listening · Website · Mobile App · Newsletter
+      </div>
+    </div>
+    <div class="stat-card" style="--accent-color:#036EBB">
+      <div class="stat-label">Audience Reach Total (Latest Month)</div>
+      <div class="stat-num sm">${fmt(D.art[li])}</div>
+      <span class="stat-change ${pct(D.art[li],D.art[li-1])===null?'neu':pct(D.art[li],D.art[li-1])>0?'up':'down'}">
+        ${pct(D.art[li],D.art[li-1])===null?'—':(pct(D.art[li],D.art[li-1])>0?'↑':'↓')+' '+Math.abs(pct(D.art[li],D.art[li-1])).toFixed(1)+'% MoM'}
+      </span>
+    </div>`;
+
+  // ── Platform row: latest month per platform ──
+  const platRow = document.getElementById('ovPlatformRow');
+  const platCards = [
+    {label:'Radio Listening (Latest)',   val:D.radio[li],     prev:D.radio[li-1],     color:'#036EBB'},
+    {label:'Digital Listening (Latest)', val:D.digital[li],   prev:D.digital[li-1],   color:'#E8A020'},
+    {label:'Website (Latest)',           val:D.web[li],       prev:D.web[li-1],       color:'#534AB7'},
+    {label:'Social Organic (Latest)',    val:D.social[li],    prev:D.social[li-1],    color:'#D85A30'},
+    {label:'Mobile App (Latest)',        val:D.app[li],       prev:D.app[li-1],       color:'#025A96'},
+    {label:'Newsletter (Latest)',        val:D.newsletter[li],prev:D.newsletter[li-1],color:'#3B6D11'},
+    {label:'Apple News (Latest)',        val:D.apple[li],     prev:D.apple[li-1],     color:'#888780'},
+  ];
+  if (platRow) platRow.innerHTML = platCards.map(c => {
+    const d = pct(c.val, c.prev);
+    const cls = d === null ? 'neu' : d > 0 ? 'up' : 'down';
+    const arrow = d === null ? '' : d > 0 ? '↑' : '↓';
+    const dStr = d === null ? '—' : `${arrow} ${Math.abs(d).toFixed(1)}%`;
+    return `<div class="stat-card" style="--accent-color:${c.color}">
+      <div class="stat-label">${c.label}</div>
+      <div class="stat-num sm">${fmt(c.val)}</div>
+      <span class="stat-change ${cls}">${dStr}</span>
+    </div>`;
+  }).join('');
   makeLineChart('ovArtChart',[lineDS(D.art,'#036EBB','ART',true)],false);
   const mixKeys  =['radio','digital','web','social','app','newsletter','apple'];
   const mixColors=['#036EBB','#E8A020','#534AB7','#D85A30','#025A96','#3B6D11','#888780'];
